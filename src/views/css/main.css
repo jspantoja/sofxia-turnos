@@ -108,3 +108,106 @@ body {
 .toast--error { background: #E74C3C; }
 
 
+
+/* ── Layout del Dashboard ─────────────────────────────────── */
+.navbar {
+  background: var(--color-primario);
+  height: 56px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 1.5rem;
+  color: #fff;
+}
+.navbar__logo { font-weight: 700; font-size: 1.1rem; }
+.navbar__logo span { color: var(--color-acento); }
+.navbar__acciones { display: flex; align-items: center; gap: .75rem; }
+
+.btn {
+  padding: .5rem 1rem;
+  border-radius: var(--radio);
+  border: none;
+  font-weight: 600;
+  font-size: .85rem;
+  cursor: pointer;
+}
+.btn--secundario { background: rgba(255,255,255,.15); color: #fff; }
+
+.dashboard-layout {
+  display: grid;
+  grid-template-columns: 240px 1fr;
+  min-height: calc(100dvh - 56px);
+}
+
+.sidebar { background: var(--color-primario); padding: 1rem 0; }
+.sidebar-nav { list-style: none; }
+.sidebar-nav a {
+  display: block;
+  padding: .75rem 1.5rem;
+  color: rgba(255,255,255,.7);
+  font-size: .9rem;
+  font-weight: 500;
+  border-left: 3px solid transparent;
+  cursor: pointer;
+}
+.sidebar-nav a:hover,
+.sidebar-nav a.activo {
+  background: rgba(62,207,207,.12);
+  color: var(--color-acento);
+  border-left-color: var(--color-acento);
+}
+
+.contenido-principal { padding: 1.75rem; }
+.pagina { display: none; }
+.pagina.activa { display: block; }
+
+
+
+/*-------dashboard pagina de inicio---------*/
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 1rem;
+}
+.stat-card {
+  background: #fff;
+  border-radius: var(--radio);
+  padding: 1.25rem 1.5rem;
+  box-shadow: 0 2px 12px rgba(27,42,74,.08);
+}
+.stat-card__numero {
+  font-size: 2rem;
+  font-weight: 700;
+  color: var(--color-primario);
+}
+.stat-card__etiqueta {
+  font-size: .82rem;
+  color: var(--color-texto-suave);
+  margin-top: .3rem;
+}
+
+
+.seccion-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.5rem;
+}
+.btn--primario { background: var(--color-acento); color: var(--color-primario); }
+
+.tabla-datos { width: 100%; border-collapse: collapse; background: #fff; border-radius: var(--radio); overflow: hidden; }
+.tabla-datos th, .tabla-datos td { padding: .75rem 1rem; text-align: left; font-size: .88rem; }
+.tabla-datos th { background: var(--color-fondo); font-size: .75rem; text-transform: uppercase; color: var(--color-texto-suave); }
+.tabla-datos tr { border-bottom: 1px solid var(--color-fondo); }
+
+/* El modal, a diferencia de las tablas, se posiciona FIJO sobre toda la
+   pantalla, con un fondo semitransparente detrás */
+.modal-fondo {
+  position: fixed; inset: 0;
+  background: rgba(27,42,74,.55);
+  display: flex; align-items: center; justify-content: center;
+  z-index: 200;
+}
+.modal-fondo[hidden] { display: none; }
+.modal { background: #fff; border-radius: 16px; padding: 2rem; width: 100%; max-width: 420px; }
+.modal__acciones { display: flex; gap: .75rem; margin-top: 1rem; }

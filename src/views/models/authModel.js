@@ -29,7 +29,7 @@ export function logout() {
 
 /** Solo un Admin con sesión puede llamar esto (register.js lo verifica). */
 export async function registrarUsuario(datos, adminToken) {
-  const respuesta = await fetch(`${API_BASE_URL}/api/auth/login`, {
+  const respuesta = await fetch(`${API_BASE_URL}/api/auth/register`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',

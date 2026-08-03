@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Panel Administrador — SOFXIA</title>
+  <link rel="stylesheet" href="css/main.css" />
+</head>
+<body>
+
+  <nav class="navbar">
+    <span class="navbar__logo"><span>SOF</span>XIA Admin</span>
+    <div class="navbar__acciones">
+      <span id="nombre-admin"></span>
+      <button class="btn btn--secundario" data-accion="logout">Cerrar sesión</button>
+    </div>
+  </nav>
+
+  <div class="dashboard-layout">
+    <aside class="sidebar">
+      <ul class="sidebar-nav">
+        <li><a data-pagina="inicio" class="activo">🏠 Inicio</a></li>
+        <li><a data-pagina="calendario">📅 Malla de Turnos</a></li>
+        <li><a data-pagina="operarios">👷 Operarios</a></li>
+        <li><a data-pagina="sedes">📍 Sedes</a></li>
+        <li><a data-pagina="novedades">📋 Novedades</a></li>
+      </ul>
+    </aside>
+
+    <main class="contenido-principal">
+
+     <!-- resumen del dia -->
+     <section id="pagina-inicio" class="pagina activa">
+  <h2>Resumen del día</h2>
+  <p id="fecha-hoy-label" style="color:var(--color-texto-suave); margin-bottom:1.5rem;"></p>
+
+  <div class="stats-grid">
+    <div class="stat-card">
+      <div class="stat-card__numero" id="stat-turnos-hoy">—</div>
+      <div class="stat-card__etiqueta">Turnos programados hoy</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-card__numero" id="stat-operarios">—</div>
+      <div class="stat-card__etiqueta">Operarios activos</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-card__numero" id="stat-sedes">—</div>
+      <div class="stat-card__etiqueta">Sedes activas</div>
+    </div>
+  </div>
+</section>
+
+
+     <!-- calendario -->
+      <section id="pagina-calendario" class="pagina">
+        <h2>Malla de Turnos</h2>
+        <p>Próximo sub-paso.</p>
+      </section>
+
+     <!-- operarios -->
+     <section id="pagina-operarios" class="pagina">
+  <div class="seccion-header">
+    <h2>Operarios</h2>
+    <button class="btn btn--primario" id="btn-nuevo-operario">+ Nuevo operario</button>
+  </div>
+  <div id="tabla-operarios"><p>Cargando...</p></div>
+</section>
+
+    <!-- sedes -->
+      <section id="pagina-sedes" class="pagina">
+        <h2>Sedes</h2>
+        <p>Próximo sub-paso.</p>
+      </section>
+
+      <!-- novedades -->
+      <section id="pagina-novedades" class="pagina">
+        <h2>Novedades</h2>
+        <p>Próximo sub-paso.</p>
+      </section>
+    </main>
+  </div>
+
+
+
+
+    <!-- modal para crear un nuevo operario -->
+       <div id="modal-operario" class="modal-fondo" hidden>
+  <div class="modal">
+    <h3>Registrar nuevo operario</h3>
+    <form id="form-operario">
+      <div class="campo">
+        <label>Nombre completo</label>
+        <input type="text" name="nombre_completo" required />
+      </div>
+      <div class="campo">
+        <label>Correo electrónico</label>
+        <input type="email" name="email" required />
+      </div>
+      <div class="campo">
+        <label>Contraseña temporal</label>
+        <input type="password" name="password" required minlength="8" />
+      </div>
+      <div id="error-operario" class="mensaje-error" hidden></div>
+      <div class="modal__acciones">
+        <button type="button" class="btn btn--secundario" id="btn-cerrar-modal-op">Cancelar</button>
+        <button type="submit" class="btn btn--primario">Registrar</button>
+      </div>
+    </form>
+  </div>
+ </div>
+
+
+
+  <script type="module">
+    import { requireAuth, getSession } from './utils/auth-guard.js';
+    import { initLogout } from './controllers/authController.js';
+
+    // La línea más importante de este archivo: si no hay sesión, o si
+    // el rol no es 1 (Admin), requireAuth() redirige por su cuenta y
+    // devuelve false — por eso cortamos la ejecución aquí mismo con throw,
+    // para no seguir corriendo código sobre una página a la que no
+    // deberíamos haber entrado.
+    if (!requireAuth(1)) throw new Error('Acceso denegado');
+
+    const session = getSession();
+    document.getElementById('nombre-admin').textContent = session.nombre_completo;
+    initLogout();
+
+
+    /*funcion resumen del dia*/
+    import { getTurnosPorRango } from './models/turnosModel.js';
+    import { getOperarios } from './models/operariosModel.js';
+    import { getPuntosActivos } from './models/puntosTrabajoModel.js';
+
+    async function cargarResumen() {
+    const hoy = new Date();
+    const hoyStr = hoy.toISOString().slice(0, 10);
+    document.getElementById('fecha-hoy-label').textContent =
+        hoy.toLocaleDateString('es-CO', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+
+    // Las 3 peticiones salen al mismo tiempo, no una detrás de otra
+    const [turnosHoy, operarios, sedes] = await Promise.all([
+        getTurnosPorRango(hoyStr, hoyStr),   // sin usuarioId: el Admin ve TODOS los turnos de hoy
+        getOperarios(),
+        getPuntosActivos()
+    ]);
+
+    document.getElementById('stat-turnos-hoy').textContent = turnosHoy.length;
+    document.getElementById('stat-operarios').textContent = operarios.length;
+    document.getElementById('stat-sedes').textContent = sedes.length;
+    }
+
+    cargarResumen(); // se llama una sola vez, al cargar la página
+
+
+    // Navegación simple entre secciones — sin recargar la página
+    document.querySelectorAll('[data-pagina]').forEach((link) => {
+      link.addEventListener('click', () => {
+        document.querySelectorAll('.pagina').forEach((p) => p.classList.remove('activa'));
+        document.querySelectorAll('[data-pagina]').forEach((a) => a.classList.remove('activo'));
+        document.getElementById(`pagina-${link.dataset.pagina}`).classList.add('activa');
+        link.classList.add('activo');
+
+
+         // NUEVO: al entrar a "Operarios", cargamos la tabla en ese momento
+    if (link.dataset.pagina === 'operarios') cargarOperarios();
+      });
+    });
+
+
+
+
+
+    import { registrarUsuario } from './models/authModel.js';
+    import { darDeBajaOperario } from './models/operariosModel.js';
+
+    async function cargarOperarios() {
+    const contenedor = document.getElementById('tabla-operarios');
+    const operarios = await getOperarios(false); // false = incluye también a los dados de baja
+
+    contenedor.innerHTML = `
+        <table class="tabla-datos">
+        <thead><tr><th>Nombre</th><th>Email</th><th>Rol</th><th>Estado</th><th>Acción</th></tr></thead>
+        <tbody>
+            ${operarios.map((op) => `
+            <tr>
+                <td>${op.nombre_completo}</td>
+                <td>${op.email}</td>
+                <td>${op.rol_id === 1 ? 'Admin' : 'Operario'}</td>
+                <td>${op.estado ? 'Activo' : 'Inactivo'}</td>
+                <td>${op.estado
+                ? `<button class="btn btn--secundario" onclick="darDeBaja('${op.id}')">Dar de baja</button>`
+                : '—'}</td>
+            </tr>
+            `).join('')}
+        </tbody>
+        </table>`;
+    }
+
+    // Se cuelga en "window" a propósito: el botón de arriba lo llama con
+    // onclick="darDeBaja(...)" directo desde el HTML generado dinámicamente,
+    // así que necesita ser accesible desde fuera de este módulo.
+    window.darDeBaja = async (id) => {
+    await darDeBajaOperario(id);
+    cargarOperarios();
+    };
+
+    document.getElementById('btn-nuevo-operario')?.addEventListener('click', () => {
+    document.getElementById('modal-operario').hidden = false;
+    });
+    document.getElementById('btn-cerrar-modal-op')?.addEventListener('click', () => {
+    document.getElementById('modal-operario').hidden = true;
+    });
+
+    document.getElementById('form-operario')?.addEventListener('submit', async (evento) => {
+    evento.preventDefault();
+    const form = evento.target;
+    const errorEl = document.getElementById('error-operario');
+    errorEl.hidden = true;
+
+    try {
+        await registrarUsuario({
+        nombre_completo: form.nombre_completo.value,
+        email: form.email.value,
+        password: form.password.value
+        }, session.token); // el token del Admin en sesión — recuerda que register.js lo exige
+        document.getElementById('modal-operario').hidden = true;
+        form.reset();
+        cargarOperarios();
+    } catch (error) {
+        errorEl.textContent = error.message;
+        errorEl.hidden = false;
+    }
+    });
+  </script>
+</body>
+</html>
