@@ -211,3 +211,32 @@ body {
 .modal-fondo[hidden] { display: none; }
 .modal { background: #fff; border-radius: 16px; padding: 2rem; width: 100%; max-width: 420px; }
 .modal__acciones { display: flex; gap: .75rem; margin-top: 1rem; }
+
+/*Estilo para botones que fallaban por el contraste de blancos*/
+.btn--tabla {
+  background: var(--color-fondo);
+  color: var(--color-primario);
+  border: 1px solid #DDE3EF;
+}
+.btn--tabla:hover { background: #e2e6ef; }
+
+
+/* ── Calendario ───────────────────────────────────────────── */
+.cal-nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 1rem;
+}
+#calendario-grid { background: #fff; border-radius: var(--radio); overflow: hidden; }
+.cal-cabecera { display: grid; grid-template-columns: repeat(7, 1fr); background: var(--color-primario); }
+.cal-dia-nombre { text-align: center; padding: .5rem; color: rgba(255,255,255,.7); font-size: .75rem; text-transform: uppercase; }
+.cal-cuerpo { display: grid; grid-template-columns: repeat(7, 1fr); }
+.cal-celda { min-height: 90px; padding: .4rem; border: 1px solid var(--color-fondo); }
+.cal-celda--vacia { background: rgba(0,0,0,.02); }
+.cal-numero { font-size: .82rem; color: var(--color-texto-suave); }
+.cal-evento { font-size: .72rem; padding: .25rem .35rem; margin-top: .2rem; border-radius: 4px; background: rgba(62,207,207,.1); }
+
+/* ── Formulario de Turnos ─────────────────────────────────── */
+.grid-turnos { display: grid; grid-template-columns: 1fr 320px; gap: 1.5rem; align-items: start; }
+.panel-formulario { background: #fff; border-radius: var(--radio); padding: 1.5rem; }

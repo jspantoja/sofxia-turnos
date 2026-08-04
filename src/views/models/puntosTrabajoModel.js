@@ -28,3 +28,7 @@ export async function actualizarPunto(id, cambios) {
 export async function desactivarPunto(id) {
   return actualizarPunto(id, { estado: false });
 }
+
+export async function reactivarPunto(id) {
+  return actualizarPunto(id, { estado: true });
+}

@@ -53,9 +53,47 @@
 
      <!-- calendario -->
       <section id="pagina-calendario" class="pagina">
-        <h2>Malla de Turnos</h2>
-        <p>Próximo sub-paso.</p>
-      </section>
+  <div class="grid-turnos">
+    <div>
+      <h2>Malla de Turnos</h2>
+      <nav class="cal-nav">
+        <button class="btn btn--tabla" id="btn-mes-anterior">← Anterior</button>
+        <strong id="label-mes-anio">—</strong>
+        <button class="btn btn--tabla" id="btn-mes-siguiente">Siguiente →</button>
+      </nav>
+      <div id="calendario-grid"></div>
+    </div>
+
+    <div class="panel-formulario">
+      <h3>Asignar turno</h3>
+      <form id="form-turno">
+        <div class="campo">
+          <label for="sel-operario">Operario</label>
+          <select name="usuario_id" id="sel-operario" required></select>
+        </div>
+        <div class="campo">
+          <label for="sel-sede">Sede</label>
+          <select name="punto_id" id="sel-sede" required></select>
+        </div>
+        <div class="campo">
+          <label for="fecha">Fecha</label>
+          <input type="date" id="fecha" name="fecha" required />
+        </div>
+        <div class="campo">
+          <label for="hora_inicio">Hora inicio</label>
+          <input type="time" id="hora_inicio" name="hora_inicio" required />
+        </div>
+        <div class="campo">
+          <label for="hora_fin">Hora fin</label>
+          <input type="time" id="hora_fin" name="hora_fin" required />
+        </div>
+        <button type="submit" class="btn btn--primario" style="width:100%;">Asignar turno</button>
+      </form>
+    </div>
+  </div>
+</section>
+
+
 
      <!-- operarios -->
      <section id="pagina-operarios" class="pagina">
@@ -68,9 +106,12 @@
 
     <!-- sedes -->
       <section id="pagina-sedes" class="pagina">
-        <h2>Sedes</h2>
-        <p>Próximo sub-paso.</p>
-      </section>
+  <div class="seccion-header">
+    <h2>Sedes</h2>
+    <button class="btn btn--primario" id="btn-nueva-sede">+ Nueva sede</button>
+  </div>
+  <div id="tabla-sedes"><p>Cargando...</p></div>
+</section>
 
       <!-- novedades -->
       <section id="pagina-novedades" class="pagina">
@@ -81,7 +122,7 @@
   </div>
 
 
-
+<!--SECCION DE MODALES-->
 
     <!-- modal para crear un nuevo operario -->
        <div id="modal-operario" class="modal-fondo" hidden>
@@ -102,7 +143,7 @@
       </div>
       <div id="error-operario" class="mensaje-error" hidden></div>
       <div class="modal__acciones">
-        <button type="button" class="btn btn--secundario" id="btn-cerrar-modal-op">Cancelar</button>
+        <button type="button" class="btn btn--tabla" id="btn-cerrar-modal-op">Cancelar</button>
         <button type="submit" class="btn btn--primario">Registrar</button>
       </div>
     </form>
@@ -111,9 +152,53 @@
 
 
 
+<!-- modal para crear una nueva sede -->
+ <div id="modal-sede" class="modal-fondo" hidden>
+  <div class="modal">
+    <h3>Registrar nueva sede</h3>
+    <form id="form-sede">
+      <div class="campo">
+        <label>Nombre de la sede</label>
+        <input type="text" name="nombre_sede" required />
+      </div>
+      <div class="campo">
+        <label>Dirección</label>
+        <input type="text" name="direccion" required />
+      </div>
+      <div class="modal__acciones">
+        <button type="button" class="btn btn--tabla" id="btn-cerrar-modal-sede">Cancelar</button>
+        <button type="submit" class="btn btn--primario">Guardar</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+
+<!-- modal para advertir sobre cruce de horario -->
+<div id="modal-cruce" class="modal-fondo" hidden>
+  <div class="modal">
+    <h3>⚠️ Cruce de horario detectado</h3>
+    <p id="detalle-cruce" style="color:var(--color-texto-suave); margin:.75rem 0;"></p>
+    <div class="modal__acciones">
+      <button type="button" class="btn btn--tabla" id="btn-cancelar-cruce">Cancelar</button>
+      <button type="button" class="btn" style="background:var(--color-error); color:#fff;" id="btn-forzar-asignacion">
+        Asignar de todas formas
+      </button>
+    </div>
+  </div>
+</div>
+
+<!--FIN DE SECCION DE MODALES-->
+
+
+
+
   <script type="module">
+
+// <!-- Sección de autenticación y control de acceso -->
     import { requireAuth, getSession } from './utils/auth-guard.js';
     import { initLogout } from './controllers/authController.js';
+    import { initCalendarioAdmin } from './controllers/calendarioController.js';
 
     // La línea más importante de este archivo: si no hay sesión, o si
     // el rol no es 1 (Admin), requireAuth() redirige por su cuenta y
@@ -162,48 +247,48 @@
         link.classList.add('activo');
 
 
-         // NUEVO: al entrar a "Operarios", cargamos la tabla en ese momento
-    if (link.dataset.pagina === 'operarios') cargarOperarios();
+         
+    if (link.dataset.pagina === 'operarios') cargarOperarios(); // NUEVO: al entrar a "Operarios", cargamos la tabla en ese momento
+    if (link.dataset.pagina === 'sedes') cargarSedes();// NUEVO: al entrar a "Sedes", cargamos la tabla en ese momento
+    if (link.dataset.pagina === 'calendario') initCalendarioAdmin(); // NUEVO: al entrar a "Malla de Turnos", inicializamos el calendario
       });
     });
 
 
 
+// <!-- Sección de registro operarios -->
+   import { registrarUsuario } from './models/authModel.js';
+import { darDeBajaOperario, reactivarOperario } from './models/operariosModel.js';
 
+async function cargarOperarios() {
+  const contenedor = document.getElementById('tabla-operarios');
+  const operarios = await getOperarios(false);
 
-    import { registrarUsuario } from './models/authModel.js';
-    import { darDeBajaOperario } from './models/operariosModel.js';
-
-    async function cargarOperarios() {
-    const contenedor = document.getElementById('tabla-operarios');
-    const operarios = await getOperarios(false); // false = incluye también a los dados de baja
-
-    contenedor.innerHTML = `
-        <table class="tabla-datos">
-        <thead><tr><th>Nombre</th><th>Email</th><th>Rol</th><th>Estado</th><th>Acción</th></tr></thead>
-        <tbody>
-            ${operarios.map((op) => `
-            <tr>
-                <td>${op.nombre_completo}</td>
-                <td>${op.email}</td>
-                <td>${op.rol_id === 1 ? 'Admin' : 'Operario'}</td>
-                <td>${op.estado ? 'Activo' : 'Inactivo'}</td>
-                <td>${op.estado
-                ? `<button class="btn btn--secundario" onclick="darDeBaja('${op.id}')">Dar de baja</button>`
-                : '—'}</td>
-            </tr>
-            `).join('')}
-        </tbody>
-        </table>`;
-    }
+  contenedor.innerHTML = `
+    <table class="tabla-datos">
+      <thead><tr><th>Nombre</th><th>Email</th><th>Rol</th><th>Estado</th><th>Acción</th></tr></thead>
+      <tbody>
+        ${operarios.map((op) => `
+          <tr>
+            <td>${op.nombre_completo}</td>
+            <td>${op.email}</td>
+            <td>${op.rol_id === 1 ? 'Admin' : 'Operario'}</td>
+            <td>${op.estado ? 'Activo' : 'Inactivo'}</td>
+            <td>${op.estado
+              ? `<button class="btn btn--tabla" onclick="darDeBaja('${op.id}')">Dar de baja</button>`
+              : `<button class="btn btn--tabla" onclick="reactivarOp('${op.id}')">Reactivar</button>`}
+          </tr>
+        `).join('')}
+      </tbody>
+    </table>`;
+}
 
     // Se cuelga en "window" a propósito: el botón de arriba lo llama con
     // onclick="darDeBaja(...)" directo desde el HTML generado dinámicamente,
     // así que necesita ser accesible desde fuera de este módulo.
-    window.darDeBaja = async (id) => {
-    await darDeBajaOperario(id);
-    cargarOperarios();
-    };
+window.darDeBaja = async (id) => { await darDeBajaOperario(id); cargarOperarios(); };
+window.reactivarOp = async (id) => { await reactivarOperario(id); cargarOperarios(); };
+
 
     document.getElementById('btn-nuevo-operario')?.addEventListener('click', () => {
     document.getElementById('modal-operario').hidden = false;
@@ -232,6 +317,87 @@
         errorEl.hidden = false;
     }
     });
+
+
+
+// <!-- Sección de sedes -->
+ import { getTodosPuntos, crearPunto, desactivarPunto, reactivarPunto } from './models/puntosTrabajoModel.js';
+
+async function cargarSedes() {
+  const contenedor = document.getElementById('tabla-sedes');
+  const sedes = await getTodosPuntos();
+
+  contenedor.innerHTML = `
+    <table class="tabla-datos">
+      <thead><tr><th>Sede</th><th>Dirección</th><th>Estado</th><th>Acción</th></tr></thead>
+      <tbody>
+        ${sedes.map((s) => `
+          <tr>
+            <td>${s.nombre_sede}</td>
+            <td>${s.direccion}</td>
+            <td>${s.estado ? 'Activa' : 'Inactiva'}</td>
+            <td>${s.estado
+              ? `<button class="btn btn--tabla" onclick="desactivarSede(${s.id})">Desactivar</button>`
+              : `<button class="btn btn--tabla" onclick="reactivarSede(${s.id})">Reactivar</button>`}
+          </tr>
+        `).join('')}
+      </tbody>
+    </table>`;
+}
+
+window.desactivarSede = async (id) => { await desactivarPunto(id); cargarSedes(); };
+window.reactivarSede = async (id) => { await reactivarPunto(id); cargarSedes(); };
+
+document.getElementById('btn-nueva-sede')?.addEventListener('click', () => {
+  document.getElementById('modal-sede').hidden = false;
+});
+document.getElementById('btn-cerrar-modal-sede')?.addEventListener('click', () => {
+  document.getElementById('modal-sede').hidden = true;
+});
+document.getElementById('form-sede')?.addEventListener('submit', async (evento) => {
+  evento.preventDefault();
+  const form = evento.target;
+  await crearPunto({ nombre_sede: form.nombre_sede.value, direccion: form.direccion.value });
+  document.getElementById('modal-sede').hidden = true;
+  form.reset();
+  cargarSedes();
+});
+
+
+
+// <!-- Sección de turnos -->
+import { initFormTurno } from './controllers/turnosController.js';
+
+async function cargarSelectsFormulario() {
+  const [operarios, sedes] = await Promise.all([getOperarios(), getPuntosActivos()]);
+  const selOperario = document.getElementById('sel-operario');
+  const selSede = document.getElementById('sel-sede');
+
+  operarios.forEach((op) => selOperario.appendChild(new Option(op.nombre_completo, op.id)));
+  sedes.forEach((s) => selSede.appendChild(new Option(s.nombre_sede, s.id)));
+}
+
+initFormTurno();          // engancha el formulario, una sola vez al cargar
+cargarSelectsFormulario(); // llena los 2 <select>, también una sola vez
+
+// Cuando turnosController.js guarda un turno con éxito, dispara este
+// evento — lo escuchamos aquí para recargar el calendario visible.
+document.addEventListener('turno:creado', () => initCalendarioAdmin());
+
+document.getElementById('btn-cancelar-cruce')?.addEventListener('click', () => {
+  document.getElementById('modal-cruce').hidden = true;
+});
+
+
+
+
+
   </script>
+
+
+
+
+
+
 </body>
 </html>
