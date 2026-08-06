@@ -40,18 +40,25 @@ export async function cargarPanelNovedades() {
   const contenedor = document.getElementById('tabla-novedades');
   if (!contenedor) return;
 
-  const novedades = await getNovedades();
+  try {
+    const novedades = await getNovedades();
 
-  if (!novedades.length) {
-    contenedor.innerHTML = '<p>No hay novedades registradas.</p>';
-    return;
+    if (!novedades.length) {
+      contenedor.innerHTML = '<p>No hay novedades registradas.</p>';
+      return;
+    }
+
+    contenedor.innerHTML = novedades.map((n) => `
+      <tr>
+        <td>${n.tbl_turnos?.tbl_usuarios?.nombre_completo ?? '—'}</td>
+        <td>${n.tipo_novedad}</td>
+        <td>${n.descripcion}</td>
+      </tr>
+    `).join('');
+  } catch (error) {
+    // Ahora, en vez de quedarse en "Cargando..." para siempre, se ve
+    // el problema real tanto en pantalla como en la consola.
+    contenedor.innerHTML = '<p>Error al cargar las novedades.</p>';
+    console.error('Error en cargarPanelNovedades:', error);
   }
-
-  contenedor.innerHTML = novedades.map((n) => `
-    <tr>
-      <td>${n.tbl_turnos?.tbl_usuarios?.nombre_completo ?? '—'}</td>
-      <td>${n.tipo_novedad}</td>
-      <td>${n.descripcion}</td>
-    </tr>
-  `).join('');
 }

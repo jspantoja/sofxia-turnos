@@ -115,9 +115,9 @@
 
       <!-- novedades -->
       <section id="pagina-novedades" class="pagina">
-        <h2>Novedades</h2>
-        <p>Próximo sub-paso.</p>
-      </section>
+  <h2>Novedades</h2>
+  <div id="tabla-novedades"><p>Cargando...</p></div>
+</section>
     </main>
   </div>
 
@@ -199,6 +199,8 @@
     import { requireAuth, getSession } from './utils/auth-guard.js';
     import { initLogout } from './controllers/authController.js';
     import { initCalendarioAdmin } from './controllers/calendarioController.js';
+    import { cargarPanelNovedades } from './controllers/novedadesController.js';
+
 
     // La línea más importante de este archivo: si no hay sesión, o si
     // el rol no es 1 (Admin), requireAuth() redirige por su cuenta y
@@ -206,6 +208,7 @@
     // para no seguir corriendo código sobre una página a la que no
     // deberíamos haber entrado.
     if (!requireAuth(1)) throw new Error('Acceso denegado');
+
 
     const session = getSession();
     document.getElementById('nombre-admin').textContent = session.nombre_completo;
@@ -219,7 +222,8 @@
 
     async function cargarResumen() {
     const hoy = new Date();
-    const hoyStr = hoy.toISOString().slice(0, 10);
+    const ahora = new Date();
+    const hoyStr = `${ahora.getFullYear()}-${String(ahora.getMonth() + 1).padStart(2, '0')}-${String(ahora.getDate()).padStart(2, '0')}`;
     document.getElementById('fecha-hoy-label').textContent =
         hoy.toLocaleDateString('es-CO', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
 
@@ -251,6 +255,8 @@
     if (link.dataset.pagina === 'operarios') cargarOperarios(); // NUEVO: al entrar a "Operarios", cargamos la tabla en ese momento
     if (link.dataset.pagina === 'sedes') cargarSedes();// NUEVO: al entrar a "Sedes", cargamos la tabla en ese momento
     if (link.dataset.pagina === 'calendario') initCalendarioAdmin(); // NUEVO: al entrar a "Malla de Turnos", inicializamos el calendario
+    if (link.dataset.pagina === 'novedades') cargarPanelNovedades(); // Carga novedades al entrar a la sección de novedades
+    
       });
     });
 
@@ -387,9 +393,6 @@ document.addEventListener('turno:creado', () => initCalendarioAdmin());
 document.getElementById('btn-cancelar-cruce')?.addEventListener('click', () => {
   document.getElementById('modal-cruce').hidden = true;
 });
-
-
-
 
 
   </script>

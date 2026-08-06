@@ -77,3 +77,16 @@ export function logout() {
   clearSession();
   window.location.href = '/index.html';
 }
+
+
+/** Extrae el usuario_id (el "sub" del JWT) de la sesión actual, o null si no hay sesión. */
+export function getUsuarioId() {
+  const session = getSession();
+  if (!session) return null;
+  try {
+    const base64 = session.token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/');
+    return JSON.parse(atob(base64)).sub;
+  } catch {
+    return null;
+  }
+}

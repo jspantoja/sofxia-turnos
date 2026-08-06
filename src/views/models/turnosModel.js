@@ -48,7 +48,10 @@ export async function getHorasAcumuladasDia(usuarioId, fecha, excluirId = null) 
 // ── De aquí en adelante, el mismo patrón se repite con pequeñas variaciones ──
 
 export async function getTurnosHoy(usuarioId) {
-  const hoy = new Date().toISOString().slice(0, 10);
+  // Antes: const hoy = new Date().toISOString().slice(0, 10);
+  const ahora = new Date();
+  const hoy = `${ahora.getFullYear()}-${String(ahora.getMonth() + 1).padStart(2, '0')}-${String(ahora.getDate()).padStart(2, '0')}`;
+
   return apiFetch('/rest/v1/tbl_turnos', {
     params: {
       select: '*, tbl_puntos_trabajo(nombre_sede, direccion), tbl_actividades(id,descripcion,completada)',

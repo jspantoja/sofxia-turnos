@@ -97,8 +97,40 @@ export async function initAgendaOperario(usuarioId) {
 
   contenedor.innerHTML = turnos.map((t) => `
     <article class="tarjeta-turno">
-      <p>📍 ${t.tbl_puntos_trabajo?.nombre_sede ?? '—'}</p>
-      <p>🕐 ${t.hora_inicio.slice(0,5)} – ${t.hora_fin.slice(0,5)} (${t.horas_calculadas}h)</p>
+      <p class="tarjeta-turno__sede">📍 ${t.tbl_puntos_trabajo?.nombre_sede ?? '—'}</p>
+      <p class="tarjeta-turno__horario">🕐 ${t.hora_inicio.slice(0,5)} – ${t.hora_fin.slice(0,5)} (${t.horas_calculadas}h)</p>
+      ${renderChecklist(t.tbl_actividades)}
+      <button class="btn btn--tabla" style="margin-top:.75rem;" data-turno-id="${t.id}" data-accion="reportar-novedad">
+        Reportar novedad
+      </button>
     </article>
   `).join('');
+
+  // Engancha cada checkbox de actividad — recuerda que marcarCompletada()
+  // usa el RPC fn_marcar_actividad, no un PATCH directo (Checkpoint 4,
+  // sub-paso 4.5: el Operario solo puede tocar "completada", nunca el texto)
+  contenedor.querySelectorAll('[data-actividad-id]').forEach((checkbox) => {
+    checkbox.addEventListener('change', async () => {
+      await marcarCompletada(Number(checkbox.dataset.actividadId), checkbox.checked);
+    });
+  });
+
+  // Cada botón "Reportar novedad" avisa con un evento — lo escucha
+  // novedadesController.js, sin que este archivo necesite conocerlo
+  contenedor.querySelectorAll('[data-accion="reportar-novedad"]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      document.dispatchEvent(new CustomEvent('novedad:abrir-modal', { detail: btn.dataset.turnoId }));
+    });
+  });
+}
+
+function renderChecklist(actividades) {
+  if (!actividades || actividades.length === 0) return '';
+  const items = actividades.map((a) => `
+    <li>
+      <input type="checkbox" data-actividad-id="${a.id}" ${a.completada ? 'checked' : ''} />
+      <span>${a.descripcion}</span>
+    </li>
+  `).join('');
+  return `<ul class="lista-actividades">${items}</ul>`;
 }

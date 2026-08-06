@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Mis Turnos — SOFXIA</title>
+  <link rel="stylesheet" href="css/main.css" />
+</head>
+<body>
+
+  <header class="agenda-header">
+    <h1>SOFXIA</h1>
+    <p id="saludo-operario">Cargando...</p>
+    <button class="btn btn--secundario" data-accion="logout" style="margin-top:.75rem;">Cerrar sesión</button>
+  </header>
+
+  <main id="lista-turnos">
+    <p>Cargando tus turnos...</p>
+  </main>
+
+  <script type="module">
+    
+    import { requireAuth, getSession, getUsuarioId } from './utils/auth-guard.js';
+import { initLogout } from './controllers/authController.js';
+import { initAgendaOperario } from './controllers/calendarioController.js';
+import { initModalNovedad } from './controllers/novedadesController.js';
+initModalNovedad();
+
+if (!requireAuth(2)) throw new Error('Acceso denegado');
+
+const session = getSession();
+document.getElementById('saludo-operario').textContent = `Hola, ${session.nombre_completo}`;
+initLogout();
+
+initAgendaOperario(getUsuarioId());
+  </script>
+
+
+<!-- Modal para reportar novedad -->
+<div id="modal-novedad" class="modal-fondo" hidden>
+  <div class="modal">
+    <h3>Reportar novedad</h3>
+    <form id="form-novedad">
+      <div class="campo">
+        <label for="sel-tipo-novedad">Tipo</label>
+        <select id="sel-tipo-novedad" name="tipo_novedad" required>
+          <option value="Retraso">Retraso</option>
+          <option value="Ausencia">Ausencia</option>
+          <option value="Daño">Daño</option>
+        </select>
+      </div>
+      <div class="campo">
+        <label for="txt-descripcion">Descripción</label>
+        <input type="text" id="txt-descripcion" name="descripcion" required />
+      </div>
+      <div class="modal__acciones">
+        <button type="button" class="btn btn--tabla" id="btn-cerrar-novedad">Cancelar</button>
+        <button type="submit" class="btn btn--primario">Reportar</button>
+      </div>
+    </form>
+  </div>
+</div>
+</body>
+</html>
