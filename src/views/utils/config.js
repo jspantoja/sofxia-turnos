@@ -13,7 +13,8 @@ export const SESSION_KEY = 'sofxia_session';
 // en el mismo dominio, así que esto será '' (vacío, rutas relativas).
 // En desarrollo local, Live Server y nuestro servidor de pruebas usan
 // puertos distintos, así que hay que ser explícitos.
-// Antes: cuando se estaba en produccion haciendo pruebas locales
+// Antes: cuando se estaba en produccion haciendo pruebas locales se usaba esta URL, pero ahora que ya estamos en producción
+//  no es necesario y se puede dejar vacía.
 // export const API_BASE_URL = 'http://127.0.0.1:3000';
 
 // Después:
