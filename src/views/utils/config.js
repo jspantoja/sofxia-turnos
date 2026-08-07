@@ -14,8 +14,12 @@ export const SESSION_KEY = 'sofxia_session';
 // En desarrollo local, Live Server y nuestro servidor de pruebas usan
 // puertos distintos, así que hay que ser explícitos.
 // Antes: cuando se estaba en produccion haciendo pruebas locales se usaba esta URL, pero ahora que ya estamos en producción
-//  no es necesario y se puede dejar vacía.
 // export const API_BASE_URL = 'http://127.0.0.1:3000';
 
 // Después:
-export const API_BASE_URL = '';
+// src/views/utils/config.js
+// Detecta automáticamente si estás en desarrollo local (Live Server,
+// siempre en 127.0.0.1) o en producción (cualquier otro dominio real).
+export const API_BASE_URL = window.location.hostname === '127.0.0.1'
+  ? 'http://127.0.0.1:3000'
+  : '';
