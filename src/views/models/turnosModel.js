@@ -85,3 +85,14 @@ export async function eliminarTurno(turnoId) {
     params: { id: `eq.${turnoId}` }
   });
 }
+
+/** Trae un turno por su ID, incluyendo datos de la sede, usuario y actividades. */
+export async function getTurnoPorId(turnoId) {
+  const resultado = await apiFetch('/rest/v1/tbl_turnos', {
+    params: {
+      id: `eq.${turnoId}`,
+      select: '*, tbl_puntos_trabajo(nombre_sede,direccion), tbl_usuarios(nombre_completo), tbl_actividades(id,descripcion,completada)'
+    }
+  });
+  return resultado?.[0] ?? null;
+}

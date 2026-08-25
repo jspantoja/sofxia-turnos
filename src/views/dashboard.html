@@ -87,6 +87,11 @@
           <label for="hora_fin">Hora fin</label>
           <input type="time" id="hora_fin" name="hora_fin" required />
         </div>
+        <div class="campo">
+          <label for="txt-actividades-turno">Actividades (opcional, una por línea)</label>
+          <textarea id="txt-actividades-turno" name="actividades" rows="2"
+  placeholder="Ej. Barrer pasillo principal, Vaciar canecas de basura, Trapear oficina"></textarea>
+          </div>
         <button type="submit" class="btn btn--primario" style="width:100%;">Asignar turno</button>
       </form>
     </div>
@@ -129,6 +134,7 @@
   <div class="modal">
     <h3>Registrar nuevo operario</h3>
     <form id="form-operario">
+      
       <div class="campo">
         <label>Nombre completo</label>
         <input type="text" name="nombre_completo" required />
@@ -144,6 +150,13 @@
       <div id="error-operario" class="mensaje-error" hidden></div>
       <div class="modal__acciones">
         <button type="button" class="btn btn--tabla" id="btn-cerrar-modal-op">Cancelar</button>
+        <div class="campo">
+          <label for="sel-rol-operario">Rol</label>
+          <select id="sel-rol-operario" name="rol_id">
+            <option value="2" selected>Operario</option>
+            <option value="1">Administrador</option>
+          </select>
+        </div>
         <button type="submit" class="btn btn--primario">Registrar</button>
       </div>
     </form>
@@ -184,6 +197,34 @@
       <button type="button" class="btn" style="background:var(--color-error); color:#fff;" id="btn-forzar-asignacion">
         Asignar de todas formas
       </button>
+    </div>
+  </div>
+</div>
+
+
+
+/* modal para ver detalle de turno y agregar actividades
+   - Se llena dinámicamente con JS, no tiene formulario propio.
+   - El Admin puede:
+     1. Agregar actividades (separadas por coma)
+     2. Cancelar el turno (lo deja como "cancelado" en la BD)
+     3. Eliminar el turno definitivamente (lo borra de la BD)
+*/
+<div id="modal-detalle-turno" class="modal-fondo" hidden>
+  <div class="modal" style="max-width:460px;">
+    <h3>Detalle del turno</h3>
+    <div id="detalle-turno-info"></div>
+
+    <div class="campo" style="margin-top:1rem;">
+      <label for="txt-nueva-actividad">Agregar actividad(es), separadas por coma</label>
+      <input type="text" id="txt-nueva-actividad" placeholder="Ej. Trapear oficina, Sacar basura" />
+    </div>
+    <button type="button" class="btn btn--tabla" id="btn-agregar-actividad" style="width:100%;margin-bottom:1rem;">+ Agregar</button>
+
+    <div class="modal__acciones" style="flex-wrap:wrap;">
+      <button type="button" class="btn btn--tabla" id="btn-cerrar-detalle-turno">Cerrar</button>
+      <button type="button" class="btn" style="background:#F39C12;color:#fff;" id="btn-cancelar-turno-detalle">Cancelar turno</button>
+      <button type="button" class="btn" style="background:var(--color-error);color:#fff;" id="btn-eliminar-turno-detalle">Eliminar definitivamente</button>
     </div>
   </div>
 </div>
@@ -278,7 +319,14 @@ async function cargarOperarios() {
           <tr>
             <td>${op.nombre_completo}</td>
             <td>${op.email}</td>
-            <td>${op.rol_id === 1 ? 'Admin' : 'Operario'}</td>
+          
+            
+          <td>
+            <select class="select-rol-inline" onchange="cambiarRolOperario('${op.id}', this.value)">
+              <option value="2" ${op.rol_id === 2 ? 'selected' : ''}>Operario</option>
+              <option value="1" ${op.rol_id === 1 ? 'selected' : ''}>Admin</option>
+            </select>
+          </td>
             <td>${op.estado ? 'Activo' : 'Inactivo'}</td>
             <td>${op.estado
               ? `<button class="btn btn--tabla" onclick="darDeBaja('${op.id}')">Dar de baja</button>`
@@ -294,6 +342,15 @@ async function cargarOperarios() {
     // así que necesita ser accesible desde fuera de este módulo.
 window.darDeBaja = async (id) => { await darDeBajaOperario(id); cargarOperarios(); };
 window.reactivarOp = async (id) => { await reactivarOperario(id); cargarOperarios(); };
+window.cambiarRolOperario = async (id, nuevoRol) => {
+  if (!confirm('¿Confirmas cambiar el rol de este usuario?')) {
+    cargarOperarios(); // revierte el <select> a su valor real si cancela
+    return;
+  }
+  await actualizarOperario(id, { rol_id: Number(nuevoRol) });
+  mostrarToast('Rol actualizado correctamente.', 'exito');
+  cargarOperarios();
+};
 
 
     document.getElementById('btn-nuevo-operario')?.addEventListener('click', () => {
@@ -313,7 +370,8 @@ window.reactivarOp = async (id) => { await reactivarOperario(id); cargarOperario
         await registrarUsuario({
         nombre_completo: form.nombre_completo.value,
         email: form.email.value,
-        password: form.password.value
+        password: form.password.value,
+        rol_id: Number(form.rol_id.value)   // ← nueva línea
         }, session.token); // el token del Admin en sesión — recuerda que register.js lo exige
         document.getElementById('modal-operario').hidden = true;
         form.reset();
@@ -328,6 +386,8 @@ window.reactivarOp = async (id) => { await reactivarOperario(id); cargarOperario
 
 // <!-- Sección de sedes -->
  import { getTodosPuntos, crearPunto, desactivarPunto, reactivarPunto } from './models/puntosTrabajoModel.js';
+ import {actualizarOperario } from './models/operariosModel.js';
+
 
 async function cargarSedes() {
   const contenedor = document.getElementById('tabla-sedes');
@@ -372,7 +432,7 @@ document.getElementById('form-sede')?.addEventListener('submit', async (evento) 
 
 
 // <!-- Sección de turnos -->
-import { initFormTurno } from './controllers/turnosController.js';
+import { initFormTurno, initDetalleTurno  } from './controllers/turnosController.js';
 
 async function cargarSelectsFormulario() {
   const [operarios, sedes] = await Promise.all([getOperarios(), getPuntosActivos()]);
@@ -384,6 +444,7 @@ async function cargarSelectsFormulario() {
 }
 
 initFormTurno();          // engancha el formulario, una sola vez al cargar
+initDetalleTurno();  // engancha el modal de detalle de turno, una sola vez al cargar
 cargarSelectsFormulario(); // llena los 2 <select>, también una sola vez
 
 // Cuando turnosController.js guarda un turno con éxito, dispara este

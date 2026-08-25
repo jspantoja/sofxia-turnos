@@ -73,14 +73,25 @@ function renderizarCuadricula(contenedor, anio, mes, turnos) {
     for (const t of turnosDia) {
       const nombre = t.tbl_usuarios?.nombre_completo?.split(' ')[0] ?? '—';
       const cruce = t.cruce_forzado ? '⚠️ ' : '';
-      html += `<div class="cal-evento" style="border-left:3px solid ${colorPorPunto(t.punto_id)}">
-        ${cruce}${nombre}<br><small>${t.hora_inicio.slice(0,5)}-${t.hora_fin.slice(0,5)}</small>
-      </div>`;
+      html += `<div class="cal-evento" data-turno-id="${t.id}" style="border-left:3px solid ${colorPorPunto(t.punto_id)}">
+  ${cruce}${nombre}<br><small>${t.hora_inicio.slice(0,5)}-${t.hora_fin.slice(0,5)}</small>
+</div>`;
     }
     html += '</div>';
   }
   html += '</div>';
   contenedor.innerHTML = html;
+
+  /*  Engancha cada evento de turno para que, al hacer clic, se dispare un
+      evento que turnosController.js escucha y abre el modal de detalle. */
+  contenedor.querySelectorAll('[data-turno-id]').forEach((el) => {
+  el.style.cursor = 'pointer';
+  el.addEventListener('click', () => {
+    document.dispatchEvent(new CustomEvent('turno:ver-detalle', { detail: el.dataset.turnoId }));
+  });
+});
+
+
 }
 
 /** Se llama desde mi-calendario.html. Pinta la agenda del Operario. */

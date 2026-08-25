@@ -272,3 +272,27 @@ body {
 .lista-actividades { list-style: none; margin-top: .75rem; }
 .lista-actividades li { display: flex; align-items: center; gap: .5rem; padding: .35rem 0; font-size: .88rem; }
 .lista-actividades input[type="checkbox"] { width: 18px; height: 18px; }
+
+
+
+/* ── Mensaje de lista vacía ───────────────────────────────── */
+.mensaje-vacio { color: var(--color-texto-suave); text-align: center; padding: 2rem; }
+
+.tag-novedad {
+  padding: .2rem .65rem;
+  border-radius: 99px;
+  font-size: .78rem;
+  font-weight: 600;
+}
+.tag-novedad--retraso  { background: rgba(243,156,18,.15); color: #b8770a; }
+.tag-novedad--ausencia { background: rgba(231,76,60,.12);  color: #c0392b; }
+.tag-novedad--daño     { background: rgba(52,73,94,.12);   color: #2c3e50; }
+
+/* ── Select de rol en línea ───────────────────────────────── */
+.select-rol-inline {
+  border: 1px solid var(--color-fondo);
+  border-radius: 6px;
+  padding: .3rem .5rem;
+  font-size: .85rem;
+  background: #fff;
+}

@@ -44,21 +44,29 @@ export async function cargarPanelNovedades() {
     const novedades = await getNovedades();
 
     if (!novedades.length) {
-      contenedor.innerHTML = '<p>No hay novedades registradas.</p>';
+      contenedor.innerHTML = '<p class="mensaje-vacio">No hay novedades registradas.</p>';
       return;
     }
 
-    contenedor.innerHTML = novedades.map((n) => `
-      <tr>
-        <td>${n.tbl_turnos?.tbl_usuarios?.nombre_completo ?? '—'}</td>
-        <td>${n.tipo_novedad}</td>
-        <td>${n.descripcion}</td>
-      </tr>
-    `).join('');
+    contenedor.innerHTML = `
+      <table class="tabla-datos">
+        <thead>
+          <tr><th>Fecha</th><th>Operario</th><th>Sede</th><th>Tipo</th><th>Descripción</th></tr>
+        </thead>
+        <tbody>
+          ${novedades.map((n) => `
+            <tr>
+              <td>${new Date(n.fecha_reporte).toLocaleDateString('es-CO', { day: 'numeric', month: 'short', year: 'numeric' })}</td>
+              <td>${n.tbl_turnos?.tbl_usuarios?.nombre_completo ?? '—'}</td>
+              <td>${n.tbl_turnos?.tbl_puntos_trabajo?.nombre_sede ?? '—'}</td>
+              <td><span class="tag-novedad tag-novedad--${n.tipo_novedad.toLowerCase()}">${n.tipo_novedad}</span></td>
+              <td>${n.descripcion}</td>
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>`;
   } catch (error) {
-    // Ahora, en vez de quedarse en "Cargando..." para siempre, se ve
-    // el problema real tanto en pantalla como en la consola.
-    contenedor.innerHTML = '<p>Error al cargar las novedades.</p>';
-    console.error('Error en cargarPanelNovedades:', error);
+    contenedor.innerHTML = '<p class="mensaje-vacio">Error al cargar las novedades.</p>';
+    console.error(error);
   }
 }
