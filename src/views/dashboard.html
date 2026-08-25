@@ -24,6 +24,7 @@
         <li><a data-pagina="operarios">👷 Operarios</a></li>
         <li><a data-pagina="sedes">📍 Sedes</a></li>
         <li><a data-pagina="novedades">📋 Novedades</a></li>
+        <li><a data-pagina="reportes">📊 Reportes</a></li>
       </ul>
     </aside>
 
@@ -123,8 +124,35 @@
   <h2>Novedades</h2>
   <div id="tabla-novedades"><p>Cargando...</p></div>
 </section>
+
+
+
+
+ <!-- reportes -->
+  <section id="pagina-reportes" class="pagina">
+  <h2>Reportes de Horas (Prenómina)</h2>
+  <div class="panel-formulario" style="max-width:100%;display:flex;gap:1rem;align-items:flex-end;flex-wrap:wrap;margin-bottom:1.5rem;">
+    <div class="campo" style="margin-bottom:0;">
+      <label for="fecha-reporte-inicio">Desde</label>
+      <input type="date" id="fecha-reporte-inicio" />
+    </div>
+    <div class="campo" style="margin-bottom:0;">
+      <label for="fecha-reporte-fin">Hasta</label>
+      <input type="date" id="fecha-reporte-fin" />
+    </div>
+    <button class="btn btn--primario" id="btn-generar-reporte">Generar reporte</button>
+  </div>
+  <div id="resumen-reporte" class="stats-grid" style="display:none;margin-bottom:1.5rem;"></div>
+  <div id="tabla-reporte"><p class="mensaje-vacio">Selecciona un rango de fechas y genera el reporte.</p></div>
+</section>
+
+
+
+
     </main>
   </div>
+
+ 
 
 
 <!--SECCION DE MODALES-->
@@ -203,13 +231,13 @@
 
 
 
-/* modal para ver detalle de turno y agregar actividades
+<!-- modal para ver detalle de turno y agregar actividades
    - Se llena dinámicamente con JS, no tiene formulario propio.
    - El Admin puede:
      1. Agregar actividades (separadas por coma)
      2. Cancelar el turno (lo deja como "cancelado" en la BD)
-     3. Eliminar el turno definitivamente (lo borra de la BD)
-*/
+     3. Eliminar el turno definitivamente (lo borra de la BD) -->
+
 <div id="modal-detalle-turno" class="modal-fondo" hidden>
   <div class="modal" style="max-width:460px;">
     <h3>Detalle del turno</h3>
@@ -453,6 +481,58 @@ document.addEventListener('turno:creado', () => initCalendarioAdmin());
 
 document.getElementById('btn-cancelar-cruce')?.addEventListener('click', () => {
   document.getElementById('modal-cruce').hidden = true;
+});
+
+
+import { calcularPrenomina } from './models/reportesModel.js';
+
+document.getElementById('btn-generar-reporte')?.addEventListener('click', async () => {
+  const inicio = document.getElementById('fecha-reporte-inicio').value;
+  const fin = document.getElementById('fecha-reporte-fin').value;
+  if (!inicio || !fin) { mostrarToast('Selecciona ambas fechas.', 'advertencia'); return; }
+
+  const contenedor = document.getElementById('tabla-reporte');
+  const resumen = document.getElementById('resumen-reporte');
+  contenedor.innerHTML = '<p class="mensaje-vacio">Calculando...</p>';
+
+  try {
+    const filas = await calcularPrenomina(inicio, fin);
+
+    if (!filas.length) {
+      contenedor.innerHTML = '<p class="mensaje-vacio">No hay turnos en ese rango de fechas.</p>';
+      resumen.style.display = 'none';
+      return;
+    }
+
+    const totalOrd = filas.reduce((s, f) => s + Number(f.horas_ordinarias), 0);
+    const totalExt = filas.reduce((s, f) => s + Number(f.horas_extra), 0);
+    const totalNoc = filas.reduce((s, f) => s + Number(f.horas_recargo_nocturno), 0);
+
+    resumen.style.display = 'grid';
+    resumen.innerHTML = `
+      <div class="stat-card"><div class="stat-card__numero">${totalOrd.toFixed(1)}h</div><div class="stat-card__etiqueta">Horas ordinarias</div></div>
+      <div class="stat-card"><div class="stat-card__numero">${totalExt.toFixed(1)}h</div><div class="stat-card__etiqueta">Horas extra</div></div>
+      <div class="stat-card"><div class="stat-card__numero">${totalNoc.toFixed(1)}h</div><div class="stat-card__etiqueta">Recargo nocturno</div></div>`;
+
+    contenedor.innerHTML = `
+      <table class="tabla-datos">
+        <thead><tr><th>Operario</th><th>Turnos</th><th>Ordinarias</th><th>Extra</th><th>Nocturnas</th><th>Total</th></tr></thead>
+        <tbody>
+          ${filas.map((f) => `
+            <tr>
+              <td>${f.nombre_completo}</td>
+              <td>${f.total_turnos}</td>
+              <td>${Number(f.horas_ordinarias).toFixed(1)}h</td>
+              <td>${Number(f.horas_extra).toFixed(1)}h</td>
+              <td>${Number(f.horas_recargo_nocturno).toFixed(1)}h</td>
+              <td><strong>${Number(f.horas_totales).toFixed(1)}h</strong></td>
+            </tr>`).join('')}
+        </tbody>
+      </table>`;
+  } catch (error) {
+    contenedor.innerHTML = '<p class="mensaje-vacio">Error al generar el reporte.</p>';
+    console.error(error);
+  }
 });
 
 
