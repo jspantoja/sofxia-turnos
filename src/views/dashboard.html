@@ -9,6 +9,10 @@
 <body>
 
   <nav class="navbar">
+
+    <!-- NUEVO: Botón de menú para móviles -->
+<button class="navbar__toggle-sidebar" id="btn-toggle-sidebar" aria-label="Mostrar/ocultar menú">☰</button>
+
     <span class="navbar__logo"><span>SOF</span>XIA Admin</span>
     <div class="navbar__acciones">
       <span id="nombre-admin"></span>
@@ -58,6 +62,10 @@
     <div>
       <h2>Malla de Turnos</h2>
       <nav class="cal-nav">
+        <div class="toggle-vista">
+          <button class="btn btn--tabla activo" id="btn-ver-mes">Mes</button>
+          <button class="btn btn--tabla" id="btn-ver-semana">Semana</button>
+        </div>
         <button class="btn btn--tabla" id="btn-mes-anterior">← Anterior</button>
         <strong id="label-mes-anio">—</strong>
         <button class="btn btn--tabla" id="btn-mes-siguiente">Siguiente →</button>
@@ -264,6 +272,8 @@
 
   <script type="module">
 
+    import { mostrarToast } from './controllers/notificacionesController.js';
+
 // <!-- Sección de autenticación y control de acceso -->
     import { requireAuth, getSession } from './utils/auth-guard.js';
     import { initLogout } from './controllers/authController.js';
@@ -310,6 +320,25 @@
 
     cargarResumen(); // se llama una sola vez, al cargar la página
 
+    // NUEVO: Lógica para el menú hamburguesa en móviles
+    const btnMenu = document.getElementById('btn-menu-movil');
+    const sidebar = document.querySelector('.sidebar');
+
+    if (btnMenu && sidebar) {
+      // Abre o cierra el menú al tocar la hamburguesa
+      btnMenu.addEventListener('click', () => {
+        sidebar.classList.toggle('sidebar--abierta');
+      });
+
+      // Cierra el menú automáticamente al hacer clic en cualquier enlace
+      document.querySelectorAll('[data-pagina]').forEach(link => {
+        link.addEventListener('click', () => {
+          if (window.innerWidth <= 768) {
+            sidebar.classList.remove('sidebar--abierta');
+          }
+        });
+      });
+    }
 
     // Navegación simple entre secciones — sin recargar la página
     document.querySelectorAll('[data-pagina]').forEach((link) => {
@@ -333,7 +362,7 @@
 
 // <!-- Sección de registro operarios -->
    import { registrarUsuario } from './models/authModel.js';
-import { darDeBajaOperario, reactivarOperario } from './models/operariosModel.js';
+import { darDeBajaOperario, reactivarOperario, eliminarOperario } from './models/operariosModel.js';
 
 async function cargarOperarios() {
   const contenedor = document.getElementById('tabla-operarios');
@@ -347,6 +376,7 @@ async function cargarOperarios() {
           <tr>
             <td>${op.nombre_completo}</td>
             <td>${op.email}</td>
+            <td>${op.estado ? 'Activo' : 'Inactivo'}</td>
           
             
           <td>
@@ -355,10 +385,14 @@ async function cargarOperarios() {
               <option value="1" ${op.rol_id === 1 ? 'selected' : ''}>Admin</option>
             </select>
           </td>
-            <td>${op.estado ? 'Activo' : 'Inactivo'}</td>
-            <td>${op.estado
-              ? `<button class="btn btn--tabla" onclick="darDeBaja('${op.id}')">Dar de baja</button>`
-              : `<button class="btn btn--tabla" onclick="reactivarOp('${op.id}')">Reactivar</button>`}
+            <td>
+  ${op.estado
+    ? `<button class="btn btn--tabla" onclick="darDeBaja('${op.id}')">Dar de baja</button>`
+    : `<button class="btn btn--tabla" onclick="reactivarOp('${op.id}')">Reactivar</button>`}
+  <button class="btn" style="background:var(--color-error);color:#fff;margin-left:.4rem;"
+          onclick="eliminarOperarioDef('${op.id}','${op.nombre_completo.replace(/'/g, "\\'")}')" title="Eliminar definitivamente">🗑</button>
+</td>
+
           </tr>
         `).join('')}
       </tbody>
@@ -413,10 +447,11 @@ window.cambiarRolOperario = async (id, nuevoRol) => {
 
 
 // <!-- Sección de sedes -->
- import { getTodosPuntos, crearPunto, desactivarPunto, reactivarPunto } from './models/puntosTrabajoModel.js';
- import {actualizarOperario } from './models/operariosModel.js';
+ import { getTodosPuntos, crearPunto, desactivarPunto, reactivarPunto, eliminarPunto } from './models/puntosTrabajoModel.js';
+ import {actualizarOperario} from './models/operariosModel.js';
 
 
+ 
 async function cargarSedes() {
   const contenedor = document.getElementById('tabla-sedes');
   const sedes = await getTodosPuntos();
@@ -430,9 +465,13 @@ async function cargarSedes() {
             <td>${s.nombre_sede}</td>
             <td>${s.direccion}</td>
             <td>${s.estado ? 'Activa' : 'Inactiva'}</td>
-            <td>${s.estado
-              ? `<button class="btn btn--tabla" onclick="desactivarSede(${s.id})">Desactivar</button>`
-              : `<button class="btn btn--tabla" onclick="reactivarSede(${s.id})">Reactivar</button>`}
+            <td>
+  ${s.estado
+    ? `<button class="btn btn--tabla" onclick="desactivarSede(${s.id})">Desactivar</button>`
+    : `<button class="btn btn--tabla" onclick="reactivarSedeFn(${s.id})">Reactivar</button>`}
+  <button class="btn" style="background:var(--color-error);color:#fff;margin-left:.4rem;"
+          onclick="eliminarSedeDef(${s.id},'${s.nombre_sede.replace(/'/g, "\\'")}')" title="Eliminar definitivamente">🗑</button>
+</td>
           </tr>
         `).join('')}
       </tbody>
@@ -456,6 +495,36 @@ document.getElementById('form-sede')?.addEventListener('submit', async (evento) 
   form.reset();
   cargarSedes();
 });
+
+window.eliminarOperarioDef = async (id, nombre) => {
+  if (!confirm(`¿ELIMINAR DEFINITIVAMENTE a "${nombre}"? Esta acción no se puede deshacer.`)) return;
+  try {
+    await eliminarOperario(id);
+    mostrarToast('Operario eliminado definitivamente.', 'exito');
+    cargarOperarios();
+  } catch (error) {
+    if (error.detalle?.code === '23503') {
+      mostrarToast('No se puede eliminar: tiene turnos en su historial. Usa "Dar de baja" en su lugar.', 'advertencia');
+    } else {
+      mostrarToast('Error al eliminar.', 'error');
+    }
+  }
+};
+
+window.eliminarSedeDef = async (id, nombre) => {
+  if (!confirm(`¿ELIMINAR DEFINITIVAMENTE "${nombre}"? Esta acción no se puede deshacer.`)) return;
+  try {
+    await eliminarPunto(id);
+    mostrarToast('Sede eliminada definitivamente.', 'exito');
+    cargarSedes();
+  } catch (error) {
+    if (error.detalle?.code === '23503') {
+      mostrarToast('No se puede eliminar: tiene turnos en su historial. Usa "Desactivar" en su lugar.', 'advertencia');
+    } else {
+      mostrarToast('Error al eliminar.', 'error');
+    }
+  }
+};
 
 
 
@@ -533,6 +602,20 @@ document.getElementById('btn-generar-reporte')?.addEventListener('click', async 
     contenedor.innerHTML = '<p class="mensaje-vacio">Error al generar el reporte.</p>';
     console.error(error);
   }
+});
+
+
+document.getElementById('btn-toggle-sidebar')?.addEventListener('click', () => {
+  document.querySelector('.dashboard-layout').classList.toggle('sidebar-toggle');
+});
+
+// Auto-cierra el sidebar al elegir una sección, solo en pantallas pequeñas
+document.querySelectorAll('[data-pagina]').forEach((link) => {
+  link.addEventListener('click', () => {
+    if (window.innerWidth <= 768) {
+      document.querySelector('.dashboard-layout').classList.remove('sidebar-toggle');
+    }
+  });
 });
 
 

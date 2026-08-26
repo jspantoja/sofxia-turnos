@@ -296,3 +296,107 @@ body {
   font-size: .85rem;
   background: #fff;
 }
+
+
+
+
+/* ==========================================================================
+   PAQUETE F: Estilos Responsive (Mobile-First)
+   ========================================================================== */
+
+/* Ocultar el botón hamburguesa en pantallas de computadora por defecto */
+.btn-menu {
+  display: none;
+  background: none;
+  border: none;
+  color: white;
+  font-size: 1.5rem;
+  cursor: pointer;
+  margin-right: 1rem;
+}
+
+/* Reglas exclusivamente para tablets y celulares */
+@media (max-width: 768px) {
+  .btn-menu {
+    display: block; /* Mostrar el botón en móviles */
+  }
+
+  .dashboard-layout {
+    display: block; /* Quitamos el grid para que la sidebar pueda flotar */
+  }
+
+  /* La barra lateral ahora flotará por encima del contenido ocultándose a la izquierda */
+  .sidebar {
+    position: fixed;
+    top: 56px; /* Altura exacta del navbar */
+    left: -250px; /* Oculta fuera de la pantalla por defecto */
+    width: 240px;
+    height: calc(100vh - 56px);
+    transition: left 0.3s ease; /* Animación de deslizamiento suave */
+    z-index: 100;
+    box-shadow: 2px 0 10px rgba(0,0,0,0.1);
+  }
+
+  /* Esta clase se añadirá con JavaScript para abrir el menú */
+  .sidebar--abierta {
+    left: 0;
+  }
+
+  .contenido-principal {
+    padding: 1rem;
+  }
+
+  /* Ajustes generales mobile para que nada se rompa */
+  .grid-turnos, .stats-grid { grid-template-columns: 1fr; }
+  .tabla-datos { display: block; overflow-x: auto; white-space: nowrap; }
+  .modal { padding: 1.5rem; width: 90%; }
+  .modal__acciones { flex-direction: column; }
+  .modal__acciones .btn { width: 100%; }
+}
+
+
+
+/* ── Toggle Mes/Semana (reutilizado en Admin y Operario) ─────── */
+.toggle-vista { display: flex; gap: .5rem; margin-bottom: 1rem; }
+.toggle-vista button.activo { background: var(--color-primario); color: #fff; }
+
+/* ── Vista semanal ─────────────────────────────────────────── */
+.semana-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: .5rem; }
+.semana-columna { background: #fff; border-radius: var(--radio); padding: .5rem; min-height: 110px; }
+.semana-columna--hoy { box-shadow: 0 0 0 2px var(--color-acento); }
+.semana-dia-header { text-align: center; font-size: .75rem; color: var(--color-texto-suave); margin-bottom: .4rem; text-transform: capitalize; }
+.semana-turnos { display: flex; flex-direction: column; gap: .3rem; }
+.semana-vacio { color: var(--color-texto-suave); font-size: .75rem; text-align: center; }
+
+/* ── Sidebar colapsable (Admin) ───────────────────────────────
+   La misma clase "sidebar-toggle" significa cosas distintas según
+   el ancho de pantalla: en escritorio OCULTA el sidebar; en móvil
+   lo MUESTRA como panel flotante — cada bloque de abajo define su
+   propio significado, sin pisarse entre sí. */
+.navbar__toggle-sidebar { background: none; border: none; color: #fff; font-size: 1.4rem; cursor: pointer; margin-right: .75rem; }
+
+.dashboard-layout { transition: grid-template-columns .25s ease; }
+.dashboard-layout.sidebar-toggle { grid-template-columns: 0px 1fr; }
+.dashboard-layout.sidebar-toggle .sidebar { width: 0; padding: 0; overflow: hidden; }
+
+/* ── Responsive: Admin ────────────────────────────────────────── */
+@media (max-width: 768px) {
+  .dashboard-layout { grid-template-columns: 1fr; }
+  .sidebar { display: none; }
+  .dashboard-layout.sidebar-toggle { grid-template-columns: 1fr; }
+  .dashboard-layout.sidebar-toggle .sidebar {
+    display: block; position: fixed; top: 56px; left: 0; bottom: 0; width: 240px;
+    z-index: 150; box-shadow: 4px 0 12px rgba(0,0,0,.15);
+  }
+  .stats-grid, .grid-turnos { grid-template-columns: 1fr; }
+  .semana-grid { grid-template-columns: 1fr; }
+  .semana-columna { display: flex; align-items: center; gap: .75rem; }
+  .semana-dia-header { margin-bottom: 0; min-width: 65px; }
+  .semana-turnos { flex: 1; }
+  .navbar__toggle-sidebar { display: inline-block; }
+}
+@media (min-width: 769px) {
+  .navbar__toggle-sidebar { display: inline-block; } /* también disponible en escritorio, opcional */
+}
+
+.calendario-operario-wrapper { padding: 1rem 1rem 0; }

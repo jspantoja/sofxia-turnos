@@ -32,3 +32,7 @@ export async function desactivarPunto(id) {
 export async function reactivarPunto(id) {
   return actualizarPunto(id, { estado: true });
 }
+
+export async function eliminarPunto(id) {
+  return apiFetch('/rest/v1/tbl_puntos_trabajo', { method: 'DELETE', params: { id: `eq.${id}` } });
+}

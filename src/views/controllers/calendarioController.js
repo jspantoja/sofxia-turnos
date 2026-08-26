@@ -6,6 +6,10 @@ import { mostrarToast } from './notificacionesController.js';
 let _mesActual = new Date().getMonth();
 let _anioActual = new Date().getFullYear();
 
+// ── Estado del calendario del Admin ──────────────────────────
+let _vistaAdmin = 'mes'; // 'mes' | 'semana'
+let _fechaSemanaAdmin = new Date();
+
 // Colores distintos por sede, para diferenciarlas de un vistazo en la cuadrícula
 const PALETA = ['#4F6BED', '#E8693A', '#2ECC71', '#9B59B6', '#F1C40F', '#1ABC9C'];
 function colorPorPunto(puntoId) {
@@ -14,20 +18,35 @@ function colorPorPunto(puntoId) {
 
 /** Se llama desde dashboard.html. Pinta la cuadrícula mensual del Admin. */
 export async function initCalendarioAdmin() {
-  document.getElementById('btn-mes-anterior')?.addEventListener('click', () => navegarMes(-1));
-  document.getElementById('btn-mes-siguiente')?.addEventListener('click', () => navegarMes(1));
-
-  // Aquí es donde escuchamos el aviso que manda turnosController.js
-  document.addEventListener('turno:creado', () => cargarMes());
-
-  await cargarMes();
+  document.getElementById('btn-mes-anterior')?.addEventListener('click', () => navegarAdmin(-1));
+  document.getElementById('btn-mes-siguiente')?.addEventListener('click', () => navegarAdmin(1));
+  document.getElementById('btn-ver-mes')?.addEventListener('click', () => cambiarVistaAdmin('mes'));
+  document.getElementById('btn-ver-semana')?.addEventListener('click', () => cambiarVistaAdmin('semana'));
+  document.addEventListener('turno:creado', () => recargarVistaAdmin());
+  await recargarVistaAdmin();
 }
 
-async function navegarMes(delta) {
-  _mesActual += delta;
-  if (_mesActual > 11) { _mesActual = 0; _anioActual++; }
-  if (_mesActual < 0) { _mesActual = 11; _anioActual--; }
-  await cargarMes();
+function cambiarVistaAdmin(tipo) {
+  _vistaAdmin = tipo;
+  document.getElementById('btn-ver-mes')?.classList.toggle('activo', tipo === 'mes');
+  document.getElementById('btn-ver-semana')?.classList.toggle('activo', tipo === 'semana');
+  recargarVistaAdmin();
+}
+
+async function navegarAdmin(delta) {
+  if (_vistaAdmin === 'mes') {
+    _mesActual += delta;
+    if (_mesActual > 11) { _mesActual = 0; _anioActual++; }
+    if (_mesActual < 0) { _mesActual = 11; _anioActual--; }
+  } else {
+    _fechaSemanaAdmin.setDate(_fechaSemanaAdmin.getDate() + delta * 7);
+  }
+  await recargarVistaAdmin();
+}
+
+async function recargarVistaAdmin() {
+  if (_vistaAdmin === 'mes') await cargarMes();
+  else await cargarSemana(_fechaSemanaAdmin, 'calendario-grid', null, 'label-mes-anio');
 }
 
 async function cargarMes() {
@@ -144,4 +163,102 @@ function renderChecklist(actividades) {
     </li>
   `).join('');
   return `<ul class="lista-actividades">${items}</ul>`;
+}
+
+
+
+/** Genérica: sirve tanto para el Admin (usuarioId=null=todos) como para el Operario (usuarioId=el suyo). */
+async function cargarSemana(fechaBase, contenedorId, usuarioId, labelId) {
+  const contenedor = document.getElementById(contenedorId);
+  if (!contenedor) return;
+
+  const inicio = new Date(fechaBase);
+  inicio.setDate(inicio.getDate() - inicio.getDay()); // retrocede hasta el domingo
+  const fin = new Date(inicio);
+  fin.setDate(fin.getDate() + 6);
+
+  const fmt = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+
+  const label = document.getElementById(labelId);
+  if (label) {
+    label.textContent = `${inicio.toLocaleDateString('es-CO', { day: 'numeric', month: 'short' })} – ${fin.toLocaleDateString('es-CO', { day: 'numeric', month: 'short', year: 'numeric' })}`;
+  }
+
+  const turnos = await getTurnosPorRango(fmt(inicio), fmt(fin), usuarioId);
+  renderizarSemana(contenedor, inicio, turnos);
+}
+
+function renderizarSemana(contenedor, inicioSemana, turnos) {
+  const turnosPorFecha = {};
+  for (const t of turnos) (turnosPorFecha[t.fecha] ??= []).push(t);
+
+  const hoy = new Date();
+  const hoyStr = `${hoy.getFullYear()}-${String(hoy.getMonth() + 1).padStart(2, '0')}-${String(hoy.getDate()).padStart(2, '0')}`;
+
+  let html = '<div class="semana-grid">';
+  for (let i = 0; i < 7; i++) {
+    const dia = new Date(inicioSemana);
+    dia.setDate(dia.getDate() + i);
+    const fecha = `${dia.getFullYear()}-${String(dia.getMonth() + 1).padStart(2, '0')}-${String(dia.getDate()).padStart(2, '0')}`;
+    const turnosDia = turnosPorFecha[fecha] ?? [];
+    const esHoy = fecha === hoyStr;
+
+    html += `<div class="semana-columna ${esHoy ? 'semana-columna--hoy' : ''}">
+      <div class="semana-dia-header">
+        <span>${dia.toLocaleDateString('es-CO', { weekday: 'short' })}</span> <strong>${dia.getDate()}</strong>
+      </div>
+      <div class="semana-turnos">
+        ${turnosDia.map((t) => `
+          <div class="cal-evento" data-turno-id="${t.id}" style="border-left:3px solid ${colorPorPunto(t.punto_id)}">
+            ${t.cruce_forzado ? '⚠️ ' : ''}${t.tbl_usuarios?.nombre_completo?.split(' ')[0] ?? t.tbl_puntos_trabajo?.nombre_sede ?? ''}
+            <br><small>${t.hora_inicio.slice(0,5)}-${t.hora_fin.slice(0,5)}</small>
+          </div>`).join('') || '<p class="semana-vacio">—</p>'}
+      </div>
+    </div>`;
+  }
+  html += '</div>';
+  contenedor.innerHTML = html;
+
+  contenedor.querySelectorAll('[data-turno-id]').forEach((el) => {
+    el.style.cursor = 'pointer';
+    el.addEventListener('click', () => {
+      document.dispatchEvent(new CustomEvent('turno:ver-detalle', { detail: el.dataset.turnoId }));
+    });
+  });
+}
+
+/** Calendario real para el Operario — semana o mes, con toggle. */
+export async function initCalendarioOperario(usuarioId) {
+  let vista = 'semana';
+  const fechaRef = new Date();
+
+  document.getElementById('btn-op-ver-semana')?.addEventListener('click', () => { vista = 'semana'; render(); });
+  document.getElementById('btn-op-ver-mes')?.addEventListener('click', () => { vista = 'mes'; render(); });
+  document.getElementById('btn-op-anterior')?.addEventListener('click', () => { mover(-1); });
+  document.getElementById('btn-op-siguiente')?.addEventListener('click', () => { mover(1); });
+  document.addEventListener('turno:creado', () => render());
+
+  function mover(delta) {
+    if (vista === 'semana') fechaRef.setDate(fechaRef.getDate() + delta * 7);
+    else fechaRef.setMonth(fechaRef.getMonth() + delta);
+    render();
+  }
+
+  async function render() {
+    document.getElementById('btn-op-ver-semana')?.classList.toggle('activo', vista === 'semana');
+    document.getElementById('btn-op-ver-mes')?.classList.toggle('activo', vista === 'mes');
+    if (vista === 'semana') {
+      await cargarSemana(fechaRef, 'calendario-operario-grid', usuarioId, 'label-mes-operario');
+    } else {
+      const label = document.getElementById('label-mes-operario');
+      if (label) label.textContent = fechaRef.toLocaleDateString('es-CO', { month: 'long', year: 'numeric' });
+      const anio = fechaRef.getFullYear(), mes = fechaRef.getMonth();
+      const primerDia = `${anio}-${String(mes + 1).padStart(2, '0')}-01`;
+      const ultimoDia = new Date(anio, mes + 1, 0).toISOString().slice(0, 10);
+      const turnos = await getTurnosPorRango(primerDia, ultimoDia, usuarioId);
+      renderizarCuadricula(document.getElementById('calendario-operario-grid'), anio, mes, turnos);
+    }
+  }
+
+  await render();
 }

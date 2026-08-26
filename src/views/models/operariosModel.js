@@ -38,3 +38,8 @@ export async function darDeBajaOperario(id) {
 export async function reactivarOperario(id) {
   return actualizarOperario(id, { estado: true });
 }
+
+
+export async function eliminarOperario(id) {
+  return apiFetch('/rest/v1/tbl_usuarios', { method: 'DELETE', params: { id: `eq.${id}` } });
+}

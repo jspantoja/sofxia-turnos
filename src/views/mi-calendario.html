@@ -9,30 +9,44 @@
 <body>
 
   <header class="agenda-header">
-    <h1>SOFXIA</h1>
-    <p id="saludo-operario">Cargando...</p>
-    <button class="btn btn--secundario" data-accion="logout" style="margin-top:.75rem;">Cerrar sesión</button>
-  </header>
+  <h1>SOFXIA</h1>
+  <p id="saludo-operario">Cargando...</p>
+  <button class="btn btn--secundario" data-accion="logout" style="margin-top:.75rem;">Cerrar sesión</button>
+</header>
 
-  <main id="lista-turnos">
-    <p>Cargando tus turnos...</p>
-  </main>
+<div class="calendario-operario-wrapper">
+  <div class="toggle-vista">
+    <button class="btn btn--tabla activo" id="btn-op-ver-semana">Semana</button>
+    <button class="btn btn--tabla" id="btn-op-ver-mes">Mes</button>
+  </div>
+  <nav class="cal-nav">
+    <button class="btn btn--tabla" id="btn-op-anterior">← Anterior</button>
+    <strong id="label-mes-operario">—</strong>
+    <button class="btn btn--tabla" id="btn-op-siguiente">Siguiente →</button>
+  </nav>
+  <div id="calendario-operario-grid"></div>
+</div>
+
+<main id="lista-turnos">
+  <p>Cargando tus turnos...</p>
+</main>
 
   <script type="module">
-    
     import { requireAuth, getSession, getUsuarioId } from './utils/auth-guard.js';
-import { initLogout } from './controllers/authController.js';
-import { initAgendaOperario } from './controllers/calendarioController.js';
-import { initModalNovedad } from './controllers/novedadesController.js';
-initModalNovedad();
+    import { initLogout } from './controllers/authController.js';
+    import { initAgendaOperario, initCalendarioOperario } from './controllers/calendarioController.js';
+    import { initModalNovedad } from './controllers/novedadesController.js';
 
-if (!requireAuth(2)) throw new Error('Acceso denegado');
+    if (!requireAuth(2)) throw new Error('Acceso denegado');
 
-const session = getSession();
-document.getElementById('saludo-operario').textContent = `Hola, ${session.nombre_completo}`;
-initLogout();
+    const session = getSession();
+    document.getElementById('saludo-operario').textContent = `Hola, ${session.nombre_completo}`;
+    initLogout();
+    initModalNovedad();
 
-initAgendaOperario(getUsuarioId());
+    const usuarioId = getUsuarioId();     // ← se declara aquí, una sola vez
+    initAgendaOperario(usuarioId);         // ← reutiliza la misma variable
+    initCalendarioOperario(usuarioId);     // ← reutiliza la misma variable
   </script>
 
 
@@ -60,5 +74,11 @@ initAgendaOperario(getUsuarioId());
     </form>
   </div>
 </div>
+
+
+
+
+
+
 </body>
 </html>

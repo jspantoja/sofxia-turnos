@@ -2,7 +2,8 @@
 import {
   verificarDisponibilidad,
   getHorasAcumuladasDia,
-  crearTurno
+  crearTurno,
+  getTurnosPorRango // Gemini: Importamos esta función para consultar los turnos del día
 } from '../models/turnosModel.js';
 import { calcularDesgloseHoras } from '../utils/horasCalculator.js';
 import { apiFetch } from '../utils/apiClient.js';
@@ -13,6 +14,18 @@ import { crearActividad } from '../models/actividadesModel.js';
 // "¿forzar de todas formas?" — así, si el Admin confirma, no hace falta
 // que vuelva a llenar el formulario desde cero.
 let _pendientePayload = null;
+
+
+//---------------------------------------------------------------------------------------------------------------------
+
+// Gemini: Helper para convertir "HH:MM" a minutos y facilitar cálculos
+function aMinutos(hhmm) {
+  const [h, m] = hhmm.split(':').map(Number);
+  return h * 60 + m;
+}
+
+//---------------------------------------------------------------------------------------------------------------------
+
 
 /** Se llama desde dashboard.html, una sola vez, al cargar la página. */
 export function initFormTurno() {
@@ -46,14 +59,62 @@ async function procesarFormTurno(form, forzarCruce) {
       horaFin: datos.hora_fin
     });
 
-    if (conflictos.length > 0 && !forzarCruce) {
-      // Hay cruce, y el Admin todavía no dijo "de todas formas" — nos
-      // detenemos aquí, sin guardar nada, y avisamos.
+
+    //---------------------------------------------------------------------------------------------------------------------
+
+    // GEMINI: PASO 1.5: PAQUETE E - Validar margen de desplazamiento (RN-02)
+    let advertenciaDesplazamiento = null;
+    const MINUTOS_MARGEN = 60; // Configurable: 1 hora de margen mínimo
+
+    if (conflictos.length === 0) { 
+      // Solo evaluamos el viaje si no hay un cruce directo
+      const turnosDelDia = await getTurnosPorRango(datos.fecha, datos.fecha, datos.usuario_id);
+
+    for (const t of turnosDelDia) {
+        if (t.punto_id !== datos.punto_id && t.estado_turno !== 'Cancelado') {
+          const iniNuevo = aMinutos(datos.hora_inicio);
+          const finNuevo = aMinutos(datos.hora_fin);
+          const iniExist = aMinutos(t.hora_inicio);
+          const finExist = aMinutos(t.hora_fin);
+
+          // Si el nuevo empieza después del existente, evaluamos la diferencia
+          if (iniNuevo >= finExist && (iniNuevo - finExist) < MINUTOS_MARGEN) {
+            advertenciaDesplazamiento = `El operario termina un turno a las ${t.hora_fin} en "${t.tbl_puntos_trabajo.nombre_sede}". Solo tendría ${iniNuevo - finExist} mins de desplazamiento.`;
+            break;
+          }
+          // Si el nuevo termina antes del existente, evaluamos la diferencia
+          if (iniExist >= finNuevo && (iniExist - finNuevo) < MINUTOS_MARGEN) {
+            advertenciaDesplazamiento = `El operario empieza otro turno a las ${t.hora_inicio} en "${t.tbl_puntos_trabajo.nombre_sede}". Solo tendría ${iniExist - finNuevo} mins de desplazamiento.`;
+            break;
+         }
+        }
+      }
+    }
+  
+//---------------------------------------------------------------------------------------------------------------------
+
+    // if (conflictos.length > 0 && !forzarCruce) {
+    //   // Hay cruce, y el Admin todavía no dijo "de todas formas" — nos
+    //   // detenemos aquí, sin guardar nada, y avisamos.
+    //   const turnoConflicto = conflictos[0];
+    //   mostrarToast(
+    //     `Cruce con turno existente (${turnoConflicto.hora_inicio}-${turnoConflicto.hora_fin}) en ${turnoConflicto.nombre_sede}`,
+    //     'advertencia'
+    //   );
+
+
+    //GEMINI ---------------------------------------------------------------------------------------------------------------------
+    if ((conflictos.length > 0 || advertenciaDesplazamiento) && !forzarCruce) {
       const turnoConflicto = conflictos[0];
-      mostrarToast(
-        `Cruce con turno existente (${turnoConflicto.hora_inicio}-${turnoConflicto.hora_fin}) en ${turnoConflicto.nombre_sede}`,
-        'advertencia'
-      );
+      const mensaje = conflictos.length > 0
+        ? `Cruce con turno existente (${turnoConflicto.hora_inicio}-${turnoConflicto.hora_fin}) en ${turnoConflicto.nombre_sede}`
+        : advertenciaDesplazamiento;
+
+      mostrarToast(mensaje, 'advertencia');
+
+      document.getElementById('detalle-cruce').textContent = mensaje;
+    //GEMINI ---------------------------------------------------------------------------------------------------------------------
+
       document.getElementById('modal-cruce').hidden = false;
       _pendientePayload = datos; // lo guardamos para reusarlo si confirma
       return;
@@ -88,13 +149,14 @@ async function procesarFormTurno(form, forzarCruce) {
 // NUEVO: crea una actividad por cada línea no vacía del textarea
 const turnoId = turnoCreado?.[0]?.id;
 const campoActividades = form.querySelector('[name="actividades"]');
+
 if (turnoId && campoActividades?.value.trim()) {
 const tareas = campoActividades.value.split(',').map((l) => l.trim()).filter(Boolean);
   for (const descripcion of tareas) {
     try { await crearActividad(turnoId, descripcion); } catch { /* no bloquea si una falla */ }
   }
 }
-
+    // Limpieza y notificaciones de éxito
     document.getElementById('modal-cruce').hidden = true;
     _pendientePayload = null;
     form.reset();
