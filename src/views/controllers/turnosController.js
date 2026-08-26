@@ -9,6 +9,7 @@ import { calcularDesgloseHoras } from '../utils/horasCalculator.js';
 import { apiFetch } from '../utils/apiClient.js';
 import { mostrarToast } from './notificacionesController.js';
 import { crearActividad } from '../models/actividadesModel.js';
+import { actualizarEstadoTurno } from '../models/turnosModel.js';
 
 // Guarda temporalmente los datos del formulario cuando hay que preguntar
 // "¿forzar de todas formas?" — así, si el Admin confirma, no hace falta
@@ -205,6 +206,48 @@ export function initDetalleTurno() {
     modal.hidden = false;
   });
 
+
+
+
+
+
+  document.getElementById('btn-marcar-descanso')?.addEventListener('click', async () => {
+  if (!confirm('¿Deseas marcar este día como Descanso?')) return;
+  
+  try {
+    // 1. Ejecutamos la actualización
+    await actualizarEstadoTurno(_turnoDetalleActualId, {
+      estado_turno: 'Cancelado',
+      horas_ordinarias: 0,
+      horas_extra: 0,
+      horas_recargo_nocturno: 0,
+      horas_calculadas: 0
+    });
+
+    // 2. Comprobación de seguridad: Consultamos el turno otra vez para ver si cambió
+    const turnoVerificado = await getTurnoPorId(_turnoDetalleActualId);
+    console.log("Turno después de actualizar:", turnoVerificado);
+
+    if (turnoVerificado && turnoVerificado.estado_turno === 'Cancelado') {
+      mostrarToast('Marcado como Descanso correctamente.', 'exito');
+      document.getElementById('modal-detalle-turno').hidden = true;
+      document.dispatchEvent(new CustomEvent('turno:creado'));
+    } else {
+      // Si entra aquí, Supabase bloqueó el cambio por RLS
+      alert('La base de datos rechazó el cambio. Revisa las políticas RLS de Supabase.');
+    }
+
+  } catch (error) {
+    console.error('Error detallado al actualizar:', error);
+    mostrarToast('Error al cambiar el estado.', 'error');
+  }
+});
+
+
+
+
+
+
   document.getElementById('btn-cerrar-detalle-turno')?.addEventListener('click', () => { modal.hidden = true; });
 
   document.getElementById('btn-agregar-actividad')?.addEventListener('click', async () => {
@@ -243,12 +286,28 @@ async function cargarDetalleTurno() {
   const turno = await getTurnoPorId(_turnoDetalleActualId);
   if (!turno) return;
 
+  // Formatear las horas reales si existen
+  const entradaReal = turno.hora_entrada_real 
+    ? new Date(turno.hora_entrada_real).toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' }) 
+    : '<span style="color:var(--color-texto-suave);">No ha marcado</span>';
+
+  const salidaReal = turno.hora_salida_real 
+    ? new Date(turno.hora_salida_real).toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' }) 
+    : '<span style="color:var(--color-texto-suave);">No ha marcado</span>';
+
   document.getElementById('detalle-turno-info').innerHTML = `
-    <p><strong>${turno.tbl_usuarios?.nombre_completo ?? '—'}</strong> — ${turno.tbl_puntos_trabajo?.nombre_sede ?? '—'}</p>
-    <p>${turno.fecha} &nbsp;·&nbsp; ${turno.hora_inicio.slice(0,5)}–${turno.hora_fin.slice(0,5)}</p>
-    <p>Ordinarias: <strong>${turno.horas_ordinarias}h</strong> &nbsp;·&nbsp; Extra: <strong>${turno.horas_extra}h</strong> &nbsp;·&nbsp; Nocturnas: <strong>${turno.horas_recargo_nocturno}h</strong></p>
-    ${turno.cruce_forzado ? '<p style="color:#F39C12;">⚠️ Asignado con cruce de horario confirmado.</p>' : ''}
-    <p><strong>Estado:</strong> ${turno.estado_turno}</p>
+    <p><strong>${turno.tbl_usuarios?.nombre_completo ?? ' '}</strong> — ${turno.tbl_puntos_trabajo?.nombre_sede ?? ' '}</p>
+    <p>📅 ${turno.fecha} &nbsp; &nbsp; 🕒 Programado: ${turno.hora_inicio.slice(0,5)} - ${turno.hora_fin.slice(0,5)}</p>
+    
+    <div style="background:var(--color-fondo); padding:.75rem; border-radius:var(--radio); margin:.75rem 0;">
+      <p>🟢 <strong>Entrada real:</strong> ${entradaReal}</p>
+      <p>🔴 <strong>Salida real:</strong> ${salidaReal}</p>
+    </div>
+
+    <p>Ordinarias: <strong>${turno.horas_ordinarias}h</strong> &nbsp; &nbsp; Extra: <strong>${turno.horas_extra}h</strong> &nbsp; &nbsp; Nocturnas: <strong>${turno.horas_recargo_nocturno}h</strong></p>
+    ${turno.cruce_forzado ? '<p style="color:#F39C12; margin-top:.5rem;">⚠️ Asignado con cruce de horario confirmado.</p>' : ''}
+    <p style="margin-top:.5rem;"><strong>Estado del turno:</strong> ${turno.estado_turno}</p>
+    
     <p style="margin-top:.75rem;"><strong>Actividades:</strong></p>
     ${turno.tbl_actividades?.length
       ? `<ul class="lista-actividades">${turno.tbl_actividades.map((a) =>

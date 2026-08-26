@@ -91,8 +91,33 @@ export async function getTurnoPorId(turnoId) {
   const resultado = await apiFetch('/rest/v1/tbl_turnos', {
     params: {
       id: `eq.${turnoId}`,
-      select: '*, tbl_puntos_trabajo(nombre_sede,direccion), tbl_usuarios(nombre_completo), tbl_actividades(id,descripcion,completada)'
+      select: '*, tbl_puntos_trabajo(nombre_sede,direccion), tbl_usuarios(nombre_completo), tbl_actividades(id,descripcion,completada), hora_entrada_real,hora_salida_real'
     }
   });
   return resultado?.[0] ?? null;
+}
+
+/** Trae las actividades de un turno por su ID. */
+export async function marcarEntrada(turnoId) {
+  return apiRpc('fn_marcar_entrada', { p_turno_id: turnoId });
+}
+export async function marcarSalida(turnoId) {
+  return apiRpc('fn_marcar_salida', { p_turno_id: turnoId });
+}
+
+
+export async function actualizarEstadoTurno(turnoId, datosNuevos) {
+  // Imprimimos los datos que viajan para estar seguros
+  console.log("Enviando a Supabase ID:", turnoId, "Datos:", datosNuevos);
+
+  const respuesta = await apiFetch(`/rest/v1/tbl_turnos?id=eq.${turnoId}`, {
+    method: 'PATCH',
+    headers: {
+      'Prefer': 'return=representation',
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify(datosNuevos)
+  });
+  
+  return respuesta;
 }

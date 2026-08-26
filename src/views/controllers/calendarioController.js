@@ -1,5 +1,5 @@
 // src/views/controllers/calendarioController.js
-import { getTurnosPorRango, getTurnosHoy } from '../models/turnosModel.js';
+import { getTurnosPorRango, getTurnosHoy, marcarEntrada, marcarSalida } from '../models/turnosModel.js';
 import { marcarCompletada } from '../models/actividadesModel.js';
 import { mostrarToast } from './notificacionesController.js';
 
@@ -9,6 +9,33 @@ let _anioActual = new Date().getFullYear();
 // ── Estado del calendario del Admin ──────────────────────────
 let _vistaAdmin = 'mes'; // 'mes' | 'semana'
 let _fechaSemanaAdmin = new Date();
+
+
+// Variable para recordar el operario actual y poder refrescar su vista
+let _operarioIdActual = null;
+
+// Funciones globales para que el HTML inyectado pueda llamarlas
+window.marcarEntradaTurno = async (id) => {
+  try {
+    await marcarEntrada(id);
+    mostrarToast('Entrada marcada ✔', 'exito');
+    initAgendaOperario(_operarioIdActual); // Refresca la vista
+  } catch {
+    mostrarToast('Error al marcar entrada.', 'error');
+  }
+};
+
+window.marcarSalidaTurno = async (id) => {
+  try {
+    await marcarSalida(id);
+    mostrarToast('Salida marcada ✔', 'exito');
+    initAgendaOperario(_operarioIdActual); // Refresca la vista
+  } catch {
+    mostrarToast('Error al marcar salida.', 'error');
+  }
+};
+
+
 
 // Colores distintos por sede, para diferenciarlas de un vistazo en la cuadrícula
 const PALETA = ['#4F6BED', '#E8693A', '#2ECC71', '#9B59B6', '#F1C40F', '#1ABC9C'];
@@ -115,26 +142,39 @@ function renderizarCuadricula(contenedor, anio, mes, turnos) {
 
 /** Se llama desde mi-calendario.html. Pinta la agenda del Operario. */
 export async function initAgendaOperario(usuarioId) {
+  _operarioIdActual = usuarioId; // Guardamos el ID para el refresco
+
   const contenedor = document.getElementById('lista-turnos');
   if (!contenedor) return;
-
   const turnos = await getTurnosHoy(usuarioId);
-
+  
   if (!turnos.length) {
     contenedor.innerHTML = '<p>No tienes turnos hoy.</p>';
     return;
   }
 
-  contenedor.innerHTML = turnos.map((t) => `
-    <article class="tarjeta-turno">
-      <p class="tarjeta-turno__sede">📍 ${t.tbl_puntos_trabajo?.nombre_sede ?? '—'}</p>
-      <p class="tarjeta-turno__horario">🕐 ${t.hora_inicio.slice(0,5)} – ${t.hora_fin.slice(0,5)} (${t.horas_calculadas}h)</p>
-      ${renderChecklist(t.tbl_actividades)}
-      <button class="btn btn--tabla" style="margin-top:.75rem;" data-turno-id="${t.id}" data-accion="reportar-novedad">
-        Reportar novedad
-      </button>
-    </article>
-  `).join('');
+  contenedor.innerHTML = turnos.map((t) => {
+    // NUEVO: Lógica que decide qué botón o texto mostrar (Adaptado de la captura)
+    const bloqueMarcaje = !t.hora_entrada_real
+      ? `<button class="btn btn--marcaje" onclick="marcarEntradaTurno(${t.id})">🟢 Marcar Entrada</button>`
+      : !t.hora_salida_real
+      ? `<button class="btn btn--marcaje btn--marcaje-salida" onclick="marcarSalidaTurno(${t.id})">🔴 Marcar Salida</button>`
+      : `<span class="marcaje-completo">✔ Entrada ${new Date(t.hora_entrada_real).toLocaleTimeString()} - Salida ${new Date(t.hora_salida_real).toLocaleTimeString()}</span>`;
+
+    return `
+      <article class="tarjeta-turno">
+        <p class="tarjeta-turno__sede">🏢 ${t.tbl_puntos_trabajo?.nombre_sede ?? ' '}</p>
+        <p class="tarjeta-turno__horario">🕒 ${t.hora_inicio.slice(0,5)} – ${t.hora_fin.slice(0,5)} (${t.horas_calculadas}h)</p>
+        
+        ${bloqueMarcaje} <!-- AQUÍ SE INSERTA EL BOTÓN -->
+
+        ${renderChecklist(t.tbl_actividades)}
+        <button class="btn btn--tabla" style="margin-top:.75rem;" data-turno-id="${t.id}" data-accion="reportar-novedad">
+          Reportar novedad
+        </button>
+      </article>
+    `;
+  }).join('');
 
   // Engancha cada checkbox de actividad — recuerda que marcarCompletada()
   // usa el RPC fn_marcar_actividad, no un PATCH directo (Checkpoint 4,
