@@ -29,6 +29,7 @@
         <li><a data-pagina="sedes">📍 Sedes</a></li>
         <li><a data-pagina="novedades">📋 Novedades</a></li>
         <li><a data-pagina="reportes">📊 Reportes</a></li>
+        <li><a data-pagina="configuracion">⚙️ Configuración</a></li>
       </ul>
     </aside>
 
@@ -76,6 +77,20 @@
     <div class="panel-formulario">
       <h3>Asignar turno</h3>
       <form id="form-turno">
+
+
+
+
+        <label class="toggle-container" for="es_descanso">
+          <div class="toggle-switch">
+            <input type="checkbox" id="es_descanso" name="es_descanso" />
+            <span class="slider"></span>
+          </div>
+          <span class="etiqueta">Asignar como día de descanso</span>
+        </label>
+
+
+
         <div class="campo">
           <label for="sel-operario">Operario</label>
           <select name="usuario_id" id="sel-operario" required></select>
@@ -153,6 +168,45 @@
   <div id="resumen-reporte" class="stats-grid" style="display:none;margin-bottom:1.5rem;"></div>
   <div id="tabla-reporte"><p class="mensaje-vacio">Selecciona un rango de fechas y genera el reporte.</p></div>
 </section>
+
+
+
+
+<!-- configuracion -->
+<section id="pagina-configuracion" class="pagina">
+  <h2>Configuración del Sistema y Nómina</h2>
+  <p style="color:var(--color-texto-suave); margin-bottom:1.5rem;">Modifica los valores base para el cálculo de turnos y nómina según la ley.</p>
+  
+  <div class="panel-formulario" style="max-width: 600px;">
+    <form id="form-configuracion">
+      <div class="campo">
+        <label for="cfg-tarifa-base">Valor Tarifa Hora Base (COP)</label>
+        <input type="number" id="cfg-tarifa-base" name="tarifa_hora_base" required />
+      </div>
+      <div class="campo">
+        <label for="cfg-max-horas">Máximas Horas Diarias (Jornada Laboral)</label>
+        <input type="number" id="cfg-max-horas" name="max_horas_diarias" step="0.5" required />
+      </div>
+      <div class="campo">
+        <label for="cfg-porc-ext">Porcentaje Hora Extra Diurna (Ej: 1.25 para 125%)</label>
+        <input type="number" id="cfg-porc-ext" name="porcentaje_hora_extra" step="0.05" required />
+      </div>
+      <div class="campo">
+        <label for="cfg-porc-noc">Porcentaje Recargo Nocturno (Ej: 0.35 para 35%)</label>
+        <input type="number" id="cfg-porc-noc" name="porcentaje_recargo_nocturno" step="0.05" required />
+      </div>
+      <button type="submit" class="btn btn--primario" style="width:100%; margin-top:1rem;">Guardar Cambios</button>
+    </form>
+  </div>
+</section>
+
+
+
+
+
+
+
+
 
 
 
@@ -281,6 +335,9 @@
     import { initCalendarioAdmin } from './controllers/calendarioController.js';
     import { cargarPanelNovedades } from './controllers/novedadesController.js';
 
+    import { apiFetch } from './utils/apiClient.js';
+    import { cargarPanelConfiguracion, initFormConfiguracion } from './controllers/configController.js';
+
 
     // La línea más importante de este archivo: si no hay sesión, o si
     // el rol no es 1 (Admin), requireAuth() redirige por su cuenta y
@@ -348,14 +405,17 @@
         document.querySelectorAll('[data-pagina]').forEach((a) => a.classList.remove('activo'));
         document.getElementById(`pagina-${link.dataset.pagina}`).classList.add('activa');
         link.classList.add('activo');
-
-
          
-    if (link.dataset.pagina === 'operarios') cargarOperarios(); // NUEVO: al entrar a "Operarios", cargamos la tabla en ese momento
-    if (link.dataset.pagina === 'sedes') cargarSedes();// NUEVO: al entrar a "Sedes", cargamos la tabla en ese momento
-    if (link.dataset.pagina === 'calendario') initCalendarioAdmin(); // NUEVO: al entrar a "Malla de Turnos", inicializamos el calendario
-    if (link.dataset.pagina === 'novedades') cargarPanelNovedades(); // Carga novedades al entrar a la sección de novedades
-    
+        if (link.dataset.pagina === 'operarios') cargarOperarios(); 
+        if (link.dataset.pagina === 'sedes') cargarSedes();
+        if (link.dataset.pagina === 'calendario') initCalendarioAdmin(); 
+        if (link.dataset.pagina === 'novedades') cargarPanelNovedades(); 
+        
+        // 👉 AGREGA ESTAS DOS LÍNEAS AQUÍ:
+        if (link.dataset.pagina === 'configuracion') {
+          cargarPanelConfiguracion(); 
+          initFormConfiguracion();    // <--- Esto enciende el botón de guardar
+        }
       });
     });
 
@@ -560,43 +620,72 @@ document.getElementById('btn-generar-reporte')?.addEventListener('click', async 
   const inicio = document.getElementById('fecha-reporte-inicio').value;
   const fin = document.getElementById('fecha-reporte-fin').value;
   if (!inicio || !fin) { mostrarToast('Selecciona ambas fechas.', 'advertencia'); return; }
-
+  
   const contenedor = document.getElementById('tabla-reporte');
   const resumen = document.getElementById('resumen-reporte');
   contenedor.innerHTML = '<p class="mensaje-vacio">Calculando...</p>';
-
+  
   try {
-    const filas = await calcularPrenomina(inicio, fin);
+    // 1. Consultar turnos/prenómina y configuración en paralelo
+    const [filas, rowsConfig] = await Promise.all([
+      calcularPrenomina(inicio, fin),
+      apiFetch('/rest/v1/tbl_configuracion', { params: { select: 'clave,valor' } })
+    ]);
 
-    if (!filas.length) {
+    if (!filas || !filas.length) {
       contenedor.innerHTML = '<p class="mensaje-vacio">No hay turnos en ese rango de fechas.</p>';
-      resumen.style.display = 'none';
+      if (resumen) resumen.style.display = 'none';
       return;
     }
 
-    const totalOrd = filas.reduce((s, f) => s + Number(f.horas_ordinarias), 0);
-    const totalExt = filas.reduce((s, f) => s + Number(f.horas_extra), 0);
-    const totalNoc = filas.reduce((s, f) => s + Number(f.horas_recargo_nocturno), 0);
+    const configMap = Object.fromEntries(rowsConfig.map((r) => [r.clave, r.valor]));
 
-    resumen.style.display = 'grid';
-    resumen.innerHTML = `
-      <div class="stat-card"><div class="stat-card__numero">${totalOrd.toFixed(1)}h</div><div class="stat-card__etiqueta">Horas ordinarias</div></div>
-      <div class="stat-card"><div class="stat-card__numero">${totalExt.toFixed(1)}h</div><div class="stat-card__etiqueta">Horas extra</div></div>
-      <div class="stat-card"><div class="stat-card__numero">${totalNoc.toFixed(1)}h</div><div class="stat-card__etiqueta">Recargo nocturno</div></div>`;
+// Usamos el operador de fusión nula (??) y validamos que no sea una cadena vacía:
+const tarifaBase = Number(configMap['tarifa_hora_base'] !== undefined && configMap['tarifa_hora_base'] !== '' ? configMap['tarifa_hora_base'] : 5416);
+const multExtra = Number(configMap['porcentaje_hora_extra'] !== undefined && configMap['porcentaje_hora_extra'] !== '' ? configMap['porcentaje_hora_extra'] : 1.25);
+const multNocturno = Number(configMap['porcentaje_recargo_nocturno'] !== undefined && configMap['porcentaje_recargo_nocturno'] !== '' ? configMap['porcentaje_recargo_nocturno'] : 0.35);
+
+    const totalOrd = filas.reduce((s, row) => s + Number(row.horas_ordinarias || 0), 0);
+    const totalExt = filas.reduce((s, row) => s + Number(row.horas_extra || 0), 0);
+    const totalNoc = filas.reduce((s, row) => s + Number(row.horas_recargo_nocturno || 0), 0);
+    
+    if (resumen) {
+      resumen.style.display = 'grid';
+      resumen.innerHTML = `
+        <div class="stat-card"><div class="stat-card__numero">${totalOrd.toFixed(1)}h</div><div class="stat-card__etiqueta">Horas ordinarias</div></div>
+        <div class="stat-card"><div class="stat-card__numero">${totalExt.toFixed(1)}h</div><div class="stat-card__etiqueta">Horas extra</div></div>
+        <div class="stat-card"><div class="stat-card__numero">${totalNoc.toFixed(1)}h</div><div class="stat-card__etiqueta">Recargo nocturno</div></div>`;
+    }
 
     contenedor.innerHTML = `
       <table class="tabla-datos">
-        <thead><tr><th>Operario</th><th>Turnos</th><th>Ordinarias</th><th>Extra</th><th>Nocturnas</th><th>Total</th></tr></thead>
+        <thead>
+          <tr>
+            <th>Operario</th>
+            <th>Turnos</th>
+            <th>Ordinarias</th>
+            <th>Extra</th>
+            <th>Nocturnas</th>
+            <th>Salario Est.</th>
+          </tr>
+        </thead>
         <tbody>
-          ${filas.map((f) => `
+          ${filas.map((row) => {
+            const pagoOrdinario = Number(row.horas_ordinarias || 0) * tarifaBase;
+            const pagoExtra = Number(row.horas_extra || 0) * (tarifaBase * multExtra); 
+            const pagoNocturno = Number(row.horas_recargo_nocturno || 0) * (tarifaBase * multNocturno);
+            const totalSalario = pagoOrdinario + pagoExtra + pagoNocturno;
+
+            return `
             <tr>
-              <td>${f.nombre_completo}</td>
-              <td>${f.total_turnos}</td>
-              <td>${Number(f.horas_ordinarias).toFixed(1)}h</td>
-              <td>${Number(f.horas_extra).toFixed(1)}h</td>
-              <td>${Number(f.horas_recargo_nocturno).toFixed(1)}h</td>
-              <td><strong>${Number(f.horas_totales).toFixed(1)}h</strong></td>
-            </tr>`).join('')}
+              <td>${row.nombre_completo || 'Operario'}</td>
+              <td>${row.total_turnos || 0}</td>
+              <td>${Number(row.horas_ordinarias || 0).toFixed(1)}h</td>
+              <td>${Number(row.horas_extra || 0).toFixed(1)}h</td>
+              <td>${Number(row.horas_recargo_nocturno || 0).toFixed(1)}h</td>
+              <td><strong>$ ${totalSalario.toLocaleString('es-CO', {maximumFractionDigits: 0})}</strong></td>
+            </tr>`;
+          }).join('')}
         </tbody>
       </table>`;
   } catch (error) {

@@ -43,16 +43,19 @@ export function initFormTurno() {
 }
 
 async function procesarFormTurno(form, forzarCruce) {
+  // 1. Capturamos si el switch está activado, pero NO lo metemos en 'datos'
+  const esDescanso = form.querySelector('[name="es_descanso"]').checked;
+  
   const datos = {
     usuario_id: form.querySelector('[name="usuario_id"]').value,
     punto_id: Number(form.querySelector('[name="punto_id"]').value),
     fecha: form.querySelector('[name="fecha"]').value,
-    hora_inicio: form.querySelector('[name="hora_inicio"]').value,
-    hora_fin: form.querySelector('[name="hora_fin"]').value
+    // Si es descanso, forzamos un horario simulado para la BD
+    hora_inicio: esDescanso ? '00:00' : form.querySelector('[name="hora_inicio"]').value,
+    hora_fin: esDescanso ? '23:59' : form.querySelector('[name="hora_fin"]').value
   };
 
   try {
-    // ── PASO 1: ¿hay cruce? ──────────────────────────────────
     const conflictos = await verificarDisponibilidad({
       usuarioId: datos.usuario_id,
       fecha: datos.fecha,
@@ -138,14 +141,14 @@ async function procesarFormTurno(form, forzarCruce) {
     });
  */
     const turnoCreado = await crearTurno({
-  ...datos,
-  horas_ordinarias: desglose.horasOrdinarias,
-  horas_extra: desglose.horasExtra,
-  horas_recargo_nocturno: desglose.horasRecargoNocturno,
-  horas_calculadas: desglose.horasTotales,
-  estado_turno: 'Programado',
-  cruce_forzado: forzarCruce && conflictos.length > 0
-});
+      ...datos,
+      horas_ordinarias: esDescanso ? 0 : desglose.horasOrdinarias,
+      horas_extra: esDescanso ? 0 : desglose.horasExtra,
+      horas_recargo_nocturno: esDescanso ? 0 : desglose.horasRecargoNocturno,
+      horas_calculadas: esDescanso ? 0 : desglose.horasTotales,
+      estado_turno: esDescanso ? 'Descanso' : 'Programado', 
+      cruce_forzado: forzarCruce && conflictos.length > 0
+    });
 
 // NUEVO: crea una actividad por cada línea no vacía del textarea
 const turnoId = turnoCreado?.[0]?.id;

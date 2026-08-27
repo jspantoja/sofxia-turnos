@@ -117,12 +117,19 @@ function renderizarCuadricula(contenedor, anio, mes, turnos) {
 
     html += `<div class="cal-celda"><span class="cal-numero">${d}</span>`;
     for (const t of turnosDia) {
-      const nombre = t.tbl_usuarios?.nombre_completo?.split(' ')[0] ?? '—';
-      const cruce = t.cruce_forzado ? '⚠️ ' : '';
-      html += `<div class="cal-evento" data-turno-id="${t.id}" style="border-left:3px solid ${colorPorPunto(t.punto_id)}">
-  ${cruce}${nombre}<br><small>${t.hora_inicio.slice(0,5)}-${t.hora_fin.slice(0,5)}</small>
-</div>`;
-    }
+  const nombre = t.tbl_usuarios?.nombre_completo?.split(' ')[0] ?? '';
+  const cruce = t.cruce_forzado ? '⚠️ ' : '';
+  
+  if (t.es_descanso || t.estado_turno === 'Descanso') {
+    html += `<div class="cal-evento" data-turno-id="${t.id}" style="border-left:3px solid #2ECC71; background: rgba(46, 204, 113, 0.1);">
+      🌴 ${nombre}<br><small>Descanso</small>
+    </div>`;
+  } else {
+    html += `<div class="cal-evento" data-turno-id="${t.id}" style="border-left:3px solid ${colorPorPunto(t.punto_id)}">
+      ${cruce}${nombre}<br><small>${t.hora_inicio.slice(0,5)}-${t.hora_fin.slice(0,5)}</small>
+    </div>`;
+  }
+}
     html += '</div>';
   }
   html += '</div>';
@@ -154,27 +161,37 @@ export async function initAgendaOperario(usuarioId) {
   }
 
   contenedor.innerHTML = turnos.map((t) => {
-    // NUEVO: Lógica que decide qué botón o texto mostrar (Adaptado de la captura)
-    const bloqueMarcaje = !t.hora_entrada_real
-      ? `<button class="btn btn--marcaje" onclick="marcarEntradaTurno(${t.id})">🟢 Marcar Entrada</button>`
-      : !t.hora_salida_real
-      ? `<button class="btn btn--marcaje btn--marcaje-salida" onclick="marcarSalidaTurno(${t.id})">🔴 Marcar Salida</button>`
-      : `<span class="marcaje-completo">✔ Entrada ${new Date(t.hora_entrada_real).toLocaleTimeString()} - Salida ${new Date(t.hora_salida_real).toLocaleTimeString()}</span>`;
-
+  // NUEVO: Si es un día de descanso, mostramos una tarjeta especial
+  if (t.estado_turno === 'Descanso') {
     return `
-      <article class="tarjeta-turno">
-        <p class="tarjeta-turno__sede">🏢 ${t.tbl_puntos_trabajo?.nombre_sede ?? ' '}</p>
-        <p class="tarjeta-turno__horario">🕒 ${t.hora_inicio.slice(0,5)} – ${t.hora_fin.slice(0,5)} (${t.horas_calculadas}h)</p>
-        
-        ${bloqueMarcaje} <!-- AQUÍ SE INSERTA EL BOTÓN -->
-
-        ${renderChecklist(t.tbl_actividades)}
-        <button class="btn btn--tabla" style="margin-top:.75rem;" data-turno-id="${t.id}" data-accion="reportar-novedad">
-          Reportar novedad
-        </button>
+      <article class="tarjeta-turno" style="border-left: 4px solid #2ECC71; background: rgba(46, 204, 113, 0.05);">
+        <p class="tarjeta-turno__sede" style="color: #27AE60;">🌴 Día de Descanso</p>
+        <p class="tarjeta-turno__horario">Disfruta tu día libre.</p>
       </article>
     `;
-  }).join('');
+  }
+
+  // Lógica normal para los turnos de trabajo
+  const bloqueMarcaje = !t.hora_entrada_real
+    ? `<button class="btn btn--marcaje" onclick="marcarEntradaTurno(${t.id})">🟢 Marcar Entrada</button>`
+    : !t.hora_salida_real
+    ? `<button class="btn btn--marcaje btn--marcaje-salida" onclick="marcarSalidaTurno(${t.id})">🔴 Marcar Salida</button>`
+    : `<span class="marcaje-completo">✅ Entrada ${new Date(t.hora_entrada_real).toLocaleTimeString()} - Salida ${new Date(t.hora_salida_real).toLocaleTimeString()}</span>`;
+  
+  return `
+    <article class="tarjeta-turno">
+      <p class="tarjeta-turno__sede">🏢 ${t.tbl_puntos_trabajo?.nombre_sede ?? 'Sin sede'}</p>
+      <p class="tarjeta-turno__horario">🕒 ${t.hora_inicio.slice(0,5)} – ${t.hora_fin.slice(0,5)} (${t.horas_calculadas}h)</p>
+      
+      ${bloqueMarcaje}
+      ${renderChecklist(t.tbl_actividades)}
+      
+      <button class="btn btn--tabla" style="margin-top:.75rem;" data-turno-id="${t.id}" data-accion="reportar-novedad">
+        Reportar novedad
+      </button>
+    </article>
+  `;
+}).join('');
 
   // Engancha cada checkbox de actividad — recuerda que marcarCompletada()
   // usa el RPC fn_marcar_actividad, no un PATCH directo (Checkpoint 4,
@@ -248,12 +265,23 @@ function renderizarSemana(contenedor, inicioSemana, turnos) {
         <span>${dia.toLocaleDateString('es-CO', { weekday: 'short' })}</span> <strong>${dia.getDate()}</strong>
       </div>
       <div class="semana-turnos">
-        ${turnosDia.map((t) => `
-          <div class="cal-evento" data-turno-id="${t.id}" style="border-left:3px solid ${colorPorPunto(t.punto_id)}">
-            ${t.cruce_forzado ? '⚠️ ' : ''}${t.tbl_usuarios?.nombre_completo?.split(' ')[0] ?? t.tbl_puntos_trabajo?.nombre_sede ?? ''}
-            <br><small>${t.hora_inicio.slice(0,5)}-${t.hora_fin.slice(0,5)}</small>
-          </div>`).join('') || '<p class="semana-vacio">—</p>'}
-      </div>
+  ${turnosDia.map((t) => {
+    // NUEVO: Validación para mostrar el descanso en la vista semanal
+    if (t.estado_turno === 'Descanso') {
+      return `
+        <div class="cal-evento" data-turno-id="${t.id}" style="border-left:3px solid #2ECC71; background: rgba(46, 204, 113, 0.15); color: #27AE60;">
+          🌴 Descanso
+        </div>`;
+    }
+    
+    // Renderizado normal
+    return `
+      <div class="cal-evento" data-turno-id="${t.id}" style="border-left:3px solid ${colorPorPunto(t.punto_id)}">
+        ${t.cruce_forzado ? '⚠️ ' : ''}${t.tbl_usuarios?.nombre_completo?.split(' ')[0] ?? t.tbl_puntos_trabajo?.nombre_sede ?? ''}
+        <br><small>${t.hora_inicio.slice(0,5)}-${t.hora_fin.slice(0,5)}</small>
+      </div>`;
+  }).join('') || '<p class="semana-vacio">Sin turnos</p>'}
+</div>
     </div>`;
   }
   html += '</div>';
